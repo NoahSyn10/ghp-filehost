@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<meta name="viewport" content="width=480,user-scalable=no" />
+<html>
+    <head>
+        <title>JuJu's Sleep-Calc</title>
+    </head>
+    <body>
+        <div id="content" class="scrollingGradient">
+            <h1>What's your bedtime bro?</h1>
+            <a>How much sleep you tryna get?</a>
+            <input id="sleep-length" type="number" placeholder="Sleep goal (hrs)">
+            <a>What time you waking up?</a>
+            <input id="wakeup-time" type="time" placeholder="Wake-up time">
+            <button onclick="getBedtime()">Calculate</button>
+
+            <h2>Bedtime: <span id="bed-time"></span></h2>
+        </div>
+
+        <script>
+            function getBedtime() {
+                var sleepLength = document.getElementById("sleep-length").value;
+                var wakeupTime = document.getElementById("wakeup-time").value;
+                var bedTime = document.getElementById("bed-time");
+
+                var wakeHour = parseInt(wakeupTime.slice(0, 2));
+                var wakeMinute = wakeupTime.slice(3);
+
+                var bedHour = 12 - sleepLength + wakeHour;
+                var bedMinute = wakeMinute;
+                var bedSuff = "**";
+
+                while (bedHour <= 0) {
+                    bedHour = bedHour + 12;
+                }
+
+                if (bedHour <= 12) {
+                    bedSuff = "PM";
+                } else {
+                    while (bedHour > 12) {
+                        bedHour = bedHour - 12;
+                    }
+                    bedSuff = "AM";
+                }
+
+                bedTime.innerHTML = bedHour + ":" + bedMinute + " " + bedSuff;
+            }
+        </script>
+    </body>
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+        }
+        #content {
+            height: 100vh;
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 3vh 3vw;
+            border-color: black;
+            border-width: 2px;
+            border-style: dashed;
+            background-color: lightblue;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #content a {
+            font-size: larger;
+        }
+        #content input {
+            background-color: transparent;
+            font-size: large;
+            text-align: center;
+            min-height: 2.5vh;
+            min-width: 15vw;
+            border-radius: 1em;
+            border-width: 1px;
+            border-style: dashed;
+            border-color: black;
+            color: black;
+        }
+        #content button {
+            background-color: rgb(240, 228, 255);
+            font-size: large;
+            margin-top: .5em;
+            border-radius: 1em;
+            border-width: 1px;
+            border-style: solid;
+            border-color: black;
+        }
+        .scrollingGradient {
+            background: linear-gradient(45deg, lightgreen, lightblue, lightskyblue, lightpink);
+            background-size: 800% 800%;
+
+            -webkit-animation: scrollingGradient 30s ease infinite;
+            -moz-animation: scrollingGradient 30s ease infinite;
+            animation: scrollingGradient 30s ease infinite;
+        }
+
+        @-webkit-keyframes scrollingGradient {
+            0%{background-position:100% 0%}
+            50%{background-position:0% 100%}
+            100%{background-position:100% 0%}
+        }
+        @-moz-keyframes scrollingGradient {
+            0%{background-position:100% 0%}
+            50%{background-position:0% 100%}
+            100%{background-position:100% 0%}
+        }
+        @keyframes scrollingGradient {
+            0%{background-position:100% 0%}
+            50%{background-position:0% 100%}
+            100%{background-position:100% 0%}
+        }
+    </style>
+</html>
