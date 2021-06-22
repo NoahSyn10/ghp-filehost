@@ -15,6 +15,7 @@
         var ctx = canvas.getContext("2d");
         var width = canvas.width;
         var height = canvas.height;
+        var numCorners = 3;
 
         //var tri = [[width/2,       height/6],
         //           [width/18,      (height/6)*5],
@@ -27,16 +28,16 @@
         draw();
 
         function draw() {
-            if (tri.length == 3 && tracePoint.length == 2) {
+            if (tri.length == numCorners && tracePoint.length == 2) {
                 drawPoint(tracePoint[0], tracePoint[1]);
-                var corner = chooseCorner(3);
+                var corner = chooseCorner(numCorners);
                 tracePoint = getMidpoint(tri[corner][0], tri[corner][1],
                                         tracePoint[0] , tracePoint[1])
             }
         }
 
         function mouseUpHandler(e) {
-            if (tri.length < 3) {
+            if (tri.length < numCorners) {
                 drawPoint(e.offsetX, e.offsetY, 2)
                 tri.push([e.offsetX, e.offsetY])
             } else if (tracePoint.length == 0) {
