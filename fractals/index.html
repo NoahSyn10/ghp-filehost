@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Fractals using Probability</title>
+    </head>
+    <body>
+        <div class="canvas-box">
+            <canvas id="myCanvas" width="750" height="750"></canvas>
+        </div>
+    </body>
+    <script>
+        // Javascript for probability fractal generator
+        // Author: Noah Synowiec
+        var canvas = document.getElementById("myCanvas");
+        var ctx = canvas.getContext("2d");
+        var width = canvas.width;
+        var height = canvas.height;
+
+        //var tri = [[width/2,       height/6],
+        //           [width/18,      (height/6)*5],
+        //          [(width/18)*17, (height/6)*5]]
+        var tri = []
+        var tracePoint = [];
+
+        document.addEventListener("mouseup", mouseUpHandler);
+        setInterval(draw, 1);
+        draw();
+
+        function draw() {
+            if (tri.length == 3 && tracePoint.length == 2) {
+                drawPoint(tracePoint[0], tracePoint[1]);
+                var corner = chooseCorner(3);
+                tracePoint = getMidpoint(tri[corner][0], tri[corner][1],
+                                        tracePoint[0] , tracePoint[1])
+            }
+        }
+
+        function mouseUpHandler(e) {
+            if (tri.length < 3) {
+                drawPoint(e.offsetX, e.offsetY, 2)
+                tri.push([e.offsetX, e.offsetY])
+            } else if (tracePoint.length == 0) {
+                tracePoint = [e.offsetX, e.offsetY]
+            }
+        }
+
+        function getMidpoint(x1, y1, x2, y2) {
+            return [(x1+x2)/2, (y1+y2)/2];
+        }
+
+        function chooseCorner(numCorners) {
+            return Math.floor(Math.random()*numCorners)
+        }
+
+        function drawPoint(x, y, r=1) {
+            ctx.beginPath();
+            ctx.rect(x, y, r, r);
+            ctx.fillStyle = "white";
+            ctx.fill();
+            ctx.closePath();
+        }
+    </script>
+    <style>
+        * { 
+            padding: 0; 
+            margin: 0; 
+        }
+        canvas { 
+            background: black; 
+            display: block; 
+            margin: 0 auto; 
+        }
+        .canvas-box {
+            width: 100vw;
+            height: 100vh;
+            display: grid;
+            place-content: center;
+        }
+    </style>
+</html>
