@@ -13,6 +13,10 @@
         // Author: Noah Synowiec
         var canvas = document.getElementById("myCanvas");
         var ctx = canvas.getContext("2d");
+        // Fullscreen
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
         var width = canvas.width;
         var height = canvas.height;
         var numCorners = 3;
