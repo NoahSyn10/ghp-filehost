@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<meta name="viewport" content="width=480,user-scalable=no" />
 <html>
     <head>
         <title>Fractals using Probability</title>
@@ -9,9 +10,11 @@
             <h2>Generate beautiful patterns with simple probability.</h2>
         </div>
         <div class="options-box">
-            <input id="numVertices" type="number" value="3" placeholder="Number of Vertices">
-            <!-- <input id="frameRate" type="number" value="1000" placeholder="Frame Rate"> -->
-            <button id="refreshBtn">Refresh</button>
+            Number of Vertices:
+            <input id="numVertices" type="number" value="3" style="width: 5em; margin-right: 1em;" placeholder="Number of Vertices">
+            Midpoint Ratio:
+            <input id="midDist" type="number" value="2" style="width: 5em; margin-right: 1em;" placeholder="Midpoint Distance">
+            <button id="refreshBtn" style="width:5em; margin-left: 1em;">Refresh</button>
         </div>
         <div class="canvas-box">
             <canvas id="myCanvas" width="750" height="750"></canvas>
@@ -29,7 +32,7 @@
         var height = canvas.height;
         var numCorners = parseInt(document.getElementById("numVertices").value);
         var frameRate = 1;
-        //var frameRate = 1/parseInt(document.getElementById("frameRate").value);
+        var midDist = parseInt(document.getElementById("midDist").value);
 
         //var tri = [[width/2,       height/6],
         //           [width/18,      (height/6)*5],
@@ -48,6 +51,7 @@
             width = canvas.width;
             height = canvas.height;
             numCorners = parseInt(document.getElementById("numVertices").value);
+            midDist = parseInt(document.getElementById("midDist").value);
             //frameRate = 1/parseInt(document.getElementById("frameRate").value);
             tri = []
             tracePoint = [];
@@ -71,8 +75,12 @@
             }
         }
 
+        function mouseInBounds(e) {
+
+        }
+
         function getMidpoint(x1, y1, x2, y2) {
-            return [(x1+x2)/2, (y1+y2)/2];
+            return [(x1+x2)/midDist, (y1+y2)/midDist];
         }
 
         function chooseCorner(numCorners) {
@@ -103,7 +111,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            place-content: center;
+            text-align: center;
         }
         .options-box {
             width: 100vw;
