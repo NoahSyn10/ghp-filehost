@@ -5,18 +5,21 @@
         <title>Fractals using Probability</title>
     </head>
     <body>
-        <div class="title-box">
-            <h1>"Chaos Game"</h1>
-            <h2>Generate beautiful patterns with simple probability.</h2>
-        </div>
-        <div class="options-box">
-            Number of Vertices:
-            <input id="numVertices" type="number" value="3" style="width: 5em; margin-right: 1em;" placeholder="Number of Vertices">
-            Midpoint Ratio:
-            <input id="midDist" type="number" value="2" style="width: 5em; margin-right: 1em;" placeholder="Midpoint Distance">
-            Framerate:
-            <input id="framerate" type="number" value="1000" style="width: 5em; margin-right: 1em;" placeholder="Framerate">
-            <button id="refreshBtn" style="width:5em; margin-left: 1em;">Refresh</button>
+        <div class="header">
+            <div class="title-box">
+                <h1>"Chaos Game"</h1>
+                <h2>Generate beautiful patterns with simple probability.</h2>
+            </div>
+            <div class="options-box">
+                <a>
+                Number of Vertices: <input id="numVertices" type="number" value="3" style="width: 5em; margin-right: 1em;" placeholder="Number of Vertices">
+                </a><a>
+                Midpoint Ratio: <input id="midDist" type="number" value="2" style="width: 5em; margin-right: 1em;" placeholder="Midpoint Distance">
+                </a><a>
+                Framerate: <input id="framerate" type="number" value="1000" style="width: 5em; margin-right: 1em;" placeholder="Framerate">
+                </a>
+                <button id="refreshBtn" style="width:5em; margin-left: 1em;">Refresh</button>
+            </div>
         </div>
         <div class="canvas-box">
             <canvas id="myCanvas" width="750" height="750"></canvas>
@@ -27,14 +30,13 @@
         // Author: Noah Synowiec
         var canvas = document.getElementById("myCanvas");
         var ctx = canvas.getContext("2d");
-        // Fullscreen
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight*4/5;
         var width = canvas.width;
         var height = canvas.height;
         var numCorners = parseInt(document.getElementById("numVertices").value);
         var midDist = parseInt(document.getElementById("midDist").value);
-        var frameRate = 1/parseInt(document.getElementById("framerate").value);;
+        var frameRate = 1000/parseInt(document.getElementById("framerate").value);
 
         //var tri = [[width/2,       height/6],
         //           [width/18,      (height/6)*5],
@@ -48,22 +50,29 @@
         draw();
 
         function refresh() {
+            // Resize & refresh window.
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight*4/5;
             width = canvas.width;
             height = canvas.height;
+
+            // Get updated variables from page.
             numCorners = parseInt(document.getElementById("numVertices").value);
             midDist = parseInt(document.getElementById("midDist").value);
-            frameRate = 1/parseInt(document.getElementById("framerate").value);
+            frameRate = 1000/parseInt(document.getElementById("framerate").value);
+
+            // Reset shape and tracepoint positions.
             tri = []
             tracePoint = [];
-            //clearInterval(drawInt);
-            //drawInt = 0;
-            //drawInt = setInterval(draw, frameRate);
-            //draw();
+
+            // Set new framerate.
+            clearInterval(drawInt);
+            drawInt = setInterval(draw, frameRate);
+            draw();
         }
 
         function draw() {
+            // Run game if the shape and tracePoing are set.
             if (tri.length == numCorners && tracePoint.length == 2) {
                 drawPoint(tracePoint[0], tracePoint[1]);
                 var corner = chooseCorner(numCorners);
@@ -73,19 +82,18 @@
         }
 
         function mouseUpHandler(e) {
+            // Create corners then tracePoint.
             if (tri.length < numCorners) {
-                drawPoint(e.offsetX, e.offsetY, 2)
                 tri.push([e.offsetX, e.offsetY])
+                drawPoint(e.offsetX, e.offsetY, 2)
             } else if (tracePoint.length == 0) {
                 tracePoint = [e.offsetX, e.offsetY]
+                drawPoint(e.offsetX, e.offsetY, 1)
             }
         }
 
-        function mouseInBounds(e) {
-
-        }
-
         function getMidpoint(x1, y1, x2, y2) {
+            // Divide difference and add back to find midpoint.
             return [x2+((x1-x2)/midDist), y2+((y1-y2)/midDist)]
         }
 
@@ -106,10 +114,17 @@
             padding: 0; 
             margin: 0; 
         }
+        html {
+            background-color: black;
+        }
         canvas { 
             background: black; 
             display: block; 
             margin: 0 auto; 
+        }
+        .header {
+            background-color: white;
+            border-radius: 0vh 0vh 10vh 10vh;
         }
         .title-box {
             width: 100vw;
@@ -125,6 +140,7 @@
             height: 10vh;
             display: flex;
             flex-direction: row;
+            flex-wrap: wrap;
             align-items: center;
             place-content: center;
         }
