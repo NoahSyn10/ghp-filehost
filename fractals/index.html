@@ -14,6 +14,8 @@
             <input id="numVertices" type="number" value="3" style="width: 5em; margin-right: 1em;" placeholder="Number of Vertices">
             Midpoint Ratio:
             <input id="midDist" type="number" value="2" style="width: 5em; margin-right: 1em;" placeholder="Midpoint Distance">
+            Framerate:
+            <input id="framerate" type="number" value="1000" style="width: 5em; margin-right: 1em;" placeholder="Framerate">
             <button id="refreshBtn" style="width:5em; margin-left: 1em;">Refresh</button>
         </div>
         <div class="canvas-box">
@@ -31,8 +33,8 @@
         var width = canvas.width;
         var height = canvas.height;
         var numCorners = parseInt(document.getElementById("numVertices").value);
-        var frameRate = 1;
         var midDist = parseInt(document.getElementById("midDist").value);
+        var frameRate = 1/parseInt(document.getElementById("framerate").value);;
 
         //var tri = [[width/2,       height/6],
         //           [width/18,      (height/6)*5],
@@ -41,8 +43,8 @@
         var tracePoint = [];
 
         document.addEventListener("mouseup", mouseUpHandler);
-        document.getElementById("refreshBtn").addEventListener("click", refresh)
-        setInterval(draw, frameRate);
+        document.getElementById("refreshBtn").addEventListener("click", refresh);
+        var drawInt = setInterval(draw, frameRate);
         draw();
 
         function refresh() {
@@ -52,9 +54,13 @@
             height = canvas.height;
             numCorners = parseInt(document.getElementById("numVertices").value);
             midDist = parseInt(document.getElementById("midDist").value);
-            //frameRate = 1/parseInt(document.getElementById("frameRate").value);
+            frameRate = 1/parseInt(document.getElementById("framerate").value);
             tri = []
             tracePoint = [];
+            //clearInterval(drawInt);
+            //drawInt = 0;
+            //drawInt = setInterval(draw, frameRate);
+            //draw();
         }
 
         function draw() {
@@ -80,7 +86,7 @@
         }
 
         function getMidpoint(x1, y1, x2, y2) {
-            return [(x1+x2)/midDist, (y1+y2)/midDist];
+            return [x2+((x1-x2)/midDist), y2+((y1-y2)/midDist)]
         }
 
         function chooseCorner(numCorners) {
