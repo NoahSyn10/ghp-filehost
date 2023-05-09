@@ -188,7 +188,16 @@ function click(x, y) {
     col = Math.floor(y / cell_size);
     const cell = grid[row][col]         // get cell from grid
 
+    if (cell.flagged || cell.clicked) { // return if clicked or flagged
+        return;
+    }
+
     cell.clicked = true;                // set cell to clicked
+
+    // if 0-cell, reveal neighboring 0-cells
+    if (cell.cell_num == 0 && !cell.is_mine) {
+        reveal_block(cell);
+    }
 }
 
 // flag the cell corresponding to the mouse's x, y position
@@ -197,7 +206,34 @@ function flag(x, y) {
     col = Math.floor(y / cell_size);
     const cell = grid[row][col]         // get cell from grid
 
+    if (cell.clicked) {                 // ignore if clicked
+        return;
+    }
+
     cell.flagged = !cell.flagged;       // toggle flagged
+}
+
+// detext neighboring 0-cells and "click" them all"
+function reveal_block(cell) {
+    cell.clicked = true     // click cell
+    cell.flagged = false    // unflag
+
+    // loop through cells around current cell
+    for (let i = -1; i <= 1; i++) {
+        for (let j = -1; j <=1; j++) {
+            // if within range and cell is 0-cell, click
+            if (0 <= cell.row+i && cell.row+i < grid_height && 0 <= cell.col+j && cell.col+j < grid_width) {
+                let neighbor = grid[cell.row + i][cell.col + j];
+                if (neighbor.clicked) {
+                    continue;               // ignore if clicked
+                } else if (neighbor.cell_num == 0) {
+                    reveal_block(neighbor); // continue recursion if 0-cell
+                } else if (!neighbor.flagged) {
+                    neighbor.clicked = true // just click if not 0-cell or flagged
+                }
+            }
+        }
+    }
 }
 
 // looped function that handles the drawing of each frame
