@@ -1,5 +1,8 @@
 ## Simple file hosting on a Github Pages site.
 
-### [SleepCalc](sleepcalc/)
+### [Minesweeper](minesweeper/)
 
 ### [Fractals](fractals/)
+
+### [SleepCalc](sleepcalc/)
+
