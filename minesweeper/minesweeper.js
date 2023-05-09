@@ -4,18 +4,26 @@
 // canvas variables
 const canvas = document.getElementById("myCanvas");
 const ctx = canvas.getContext("2d");
-canvas.width = window.innerHeight*4/5;
-canvas.height = window.innerHeight*4/5;
-const width = canvas.width;
-const height = canvas.height;
-const frameRate = 100;
+// size canvas based on orientation
+if (window.innerWidth < window.innerHeight) {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerWidth;
+} else {
+    canvas.width = window.innerHeight*4/5;
+    canvas.height = window.innerHeight*4/5;
+}
+let width = canvas.width;
+let height = canvas.height;
+let frameRate = 100;
 
 // game variables
-const grid_width = 11;
-const grid_height = grid_width;
-const cell_size = canvas.height / grid_height;
-const percent_fill = 0.1;
-const grid = []
+let grid_size = parseInt(document.getElementById("grid_size").value);
+let mine_percentage = parseInt(document.getElementById("mine_percentage").value);
+let grid_width = grid_size;
+let grid_height = grid_width;
+let cell_size = canvas.height / grid_height;
+let percent_fill = mine_percentage/100;
+let grid = []
 
 // Cell Class
 class Cell {
@@ -145,9 +153,35 @@ document.addEventListener("contextmenu", (event) => {
 
 // set event listeners and begin draw loop
 document.addEventListener("mouseup", mouseUpHandler);
-//document.getElementById("refreshBtn").addEventListener("click", refresh);
+document.getElementById("refreshBtn").addEventListener("click", refresh);
 const drawInt = setInterval(draw, frameRate);
 draw();
+
+function refresh() {
+    // size canvas based on orientation
+    if (window.innerWidth < window.innerHeight) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerWidth;
+    } else {
+        canvas.width = window.innerHeight*4/5;
+        canvas.height = window.innerHeight*4/5;
+    }
+    width = canvas.width;
+    height = canvas.height;
+    frameRate = 100;
+
+    // game variables
+    grid_size = parseInt(document.getElementById("grid_size").value);
+    mine_percentage = parseInt(document.getElementById("mine_percentage").value);
+    grid_width = grid_size;
+    grid_height = grid_width;
+    cell_size = canvas.height / grid_height;
+    percent_fill = mine_percentage/100;
+    grid = []
+
+    // generate grid before beginning execution
+    generateGrid();
+}
 
 function generateGrid() {
     for (let row = 0; row < grid_width; row++) {    // loop through grid
