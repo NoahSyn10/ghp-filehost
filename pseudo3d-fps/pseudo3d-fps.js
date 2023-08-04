@@ -25,11 +25,6 @@ for (var i = 0; i < pixels.length; i += 4) {
 /*******************
  * Game Variables
  *******************/
-// list of columns containing Uint8ClampedArrays for rows
-var columns = [];
-for (var col = 0; col < scrWidth; col+=1) {
-    columns[col] = new Uint8ClampedArray(scrHeight*4);
-}
 // Player attributes
 var playerX = 8.0;
 var playerY = 8.0;
@@ -86,14 +81,10 @@ var leftArrowPressed, rightArrowPressed = false;
 document.addEventListener("contextmenu", (event) => {
     event.preventDefault();});
 
-//const drawInt = setInterval(draw, frameRate);
-//draw();
-
-
-
-
+// vars to track time
 let start, elapsed, prevTimeStamp;
 
+// step through frames, record elapsed time, call draw()
 function step(timeStamp) {
     if (start === undefined) {
         start = timeStamp;
@@ -107,13 +98,11 @@ function step(timeStamp) {
     prevTimeStamp = timeStamp;
     window.requestAnimationFrame(step);
 }
-
 window.requestAnimationFrame(step);
 
 function draw() {
     move();
     castRays();
-    drawCols();
     drawMiniMap();
     ctx.putImageData(imgdata, 0, 0);
 }
@@ -166,6 +155,7 @@ function move() {
     }
 }
 
+// cast a ray for each column of pixels
 function castRays() {
     for (var col = 0; col < scrWidth; col += 1) {
         // calculate ray angle and unit vector
@@ -194,37 +184,41 @@ function castRays() {
             }
         }
         
-        
         // calculate ceiling and floor sizes for col based on distance
         var ceiling = (scrHeight/2) - scrHeight/distanceToWall;
         var floor = scrHeight - ceiling;
 
+        // shading vars
         var ceilShade;
         var wallShade = 255 - (distanceToWall/maxDepth) * 255
         var floorShade = 0;
 
+        // write ceiling, wall, and floor to column
         for (var row = 0; row < scrHeight; row += 1) {
             var r, g, b;
+            // ceiling
             if (row < ceiling) {
                 ceilShade = ((scrHeight-(row**1.05)) / scrHeight) * 100;
                 r = ceilShade;
                 g = ceilShade;
                 b = ceilShade;
+            // wall
             } else if (row > ceiling && row <= floor) {
                 r = wallShade;
                 g = wallShade;
                 b = wallShade;
+            // floor
             } else {
                 floorShade = (row / scrHeight) * 150;
                 r = floorShade;
                 g = floorShade * .75;
                 b = floorShade * .65;
             }
-
-            i = row*4;
-            columns[col][i] = r;
-            columns[col][i+1] = g;
-            columns[col][i+2] = b;
+            // write column to imagedata
+            var off = row*4*scrWidth + col*4
+            pixels[off] = r;
+            pixels[off+1] = g;
+            pixels[off+2] = b;
         }
     }
 }
@@ -233,22 +227,60 @@ function drawMiniMap() {
     var size = miniMapCellSize;
     var r, g, b;
 
-     for (var col = 0; col < mapWidth; col += 1) {
+    // draw floor
+    r=200, g=220, b=255;
+    drawRectImgData(0, 0, mapHeight*size, mapWidth*size, r, g, b);
+    // draw FOV
+    r=0, g=255, b=0;
+    drawFOV(r, g, b);
+    // draw player
+    r=0, g=100, b=225;
+    drawRectImgData(Math.trunc(playerX)*size, Math.trunc(playerY)*size, size, size, r, g, b);
+    // draw player and walls
+    for (var col = 0; col < mapWidth; col += 1) {
         for (var row = 0; row < mapHeight; row += 1) {
-            if (Math.trunc(playerY) == col && Math.trunc(playerX) == row) {
-                r=0, g=100, b=225;
-            }
-            else if(coordsInWall(row, col)) {
+            if(coordsInWall(row, col)) {
                 r=255, g=100, b=75;
+                drawRectImgData(row*size, col*size, size, size, r, g, b);
             }
-            else if(cellInFOV(row, col)) {
-                r=200, g=255, b=200;
-            } else {
-                r=200, g=220, b=225;
-            }
-            drawRectImgData(row*size, col*size, size, size, r, g, b);
         }
-     }
+    }
+    
+}
+
+function drawFOV(r, g, b) {
+    // calculate ray angle and unit vector
+    var size = miniMapCellSize;
+    var granularity = 64;
+    for (var i = 0; i < granularity; i += 1) {
+        var rayAngle = (playerA - playerFOV/2) + (i/granularity) * playerFOV;
+        var eyeX = Math.sin(rayAngle);
+        var eyeY = Math.cos(rayAngle);
+
+        // vars to track ray
+        var distanceToWall = 0;
+        var stepLen = 2/size;
+
+        var miniPlayerX = Math.trunc(playerX) + .5
+        var miniPlayerY = Math.trunc(playerY) + .5
+
+        
+        // increment ray length until inside of a wall
+        while (distanceToWall < maxDepth) {
+            distanceToWall += stepLen;
+            var testX = Math.trunc((miniPlayerX + eyeX * (distanceToWall)));
+            var testY = Math.trunc((miniPlayerY + eyeY * (distanceToWall)));
+
+            var drawX = Math.trunc((miniPlayerX + eyeX * distanceToWall*size));
+            var drawY = Math.trunc((miniPlayerY + eyeY * distanceToWall*size));
+
+                if (coordsInWall(testX, testY)) {
+                    break;
+                }
+                drawRectImgData(Math.trunc(miniPlayerX*(size-1)) + drawX, Math.trunc(miniPlayerY*(size-1)) + drawY, 1, 1, r, g, b);
+        }
+    }
+    return false
 }
 
 function clickMiniMap(x, y) {
@@ -277,79 +309,23 @@ function coordsInWall(x, y) {
     }
 }
 
-function cellInFOV(row, col) {
-    // calculate ray angle and unit vector
-    var granularity = 8;
-    for (var i = 0; i < granularity; i += 1) {
-        var rayAngle = (playerA - playerFOV/2) + (i/granularity) * playerFOV;
-        var eyeX = Math.sin(rayAngle);
-        var eyeY = Math.cos(rayAngle);
-
-        // vars to track ray
-        var distanceToWall = 0;
-        var stepLen = 0.25;
-        
-        // increment ray length until inside of a wall
-        while (distanceToWall < maxDepth) {
-            distanceToWall += stepLen;
-            var testX = Math.trunc((playerX + eyeX * distanceToWall));
-            var testY = Math.trunc((playerY + eyeY * distanceToWall));
-
-                if (coordsInWall(testX, testY)) {
-                    break;
-                }
-                if (testX == row && testY == col) {
-                    return true;
-                }
-            
-        }
-    }
-    return false
-}
-
-function populateCols() {
-    var i, r, g, b;
-    for (var col = 0; col < scrWidth; col += 1) {
-        for (var row = 0; row < scrHeight; row += 1) {
-            i = row*4;
-
-            r = (row / scrHeight) * 255
-            g = (col / scrWidth) * 255
-            b = ((row+col) / (scrWidth+scrHeight)) * 255
-            
-            columns[col][i] = r;
-            columns[col][i+1] = g;
-            columns[col][i+2] = b;
-        }
-    }
-}
-
 /**************************************************************************************
  * Draw a rectangle to ImgData at x,y with given width and height and given rgb values 
  **************************************************************************************/
-function drawRectImgData(x, y, width, height, r, g, b) {
-    var off;
+function drawRectImgData(x, y, width, height, fr, fg, fb) {
+    var off, wr, wb, wg;
+    var strokeOn=false, sr, sb, sg;
     for(var i = x; i < x+width; i += 1) {
         for(var j = y; j < y+height; j += 1) {
+            if(strokeOn && (i == x || i == x+width || j == y || j == y+height)) {
+                wr=155, wb=155, wg=155;
+            } else {
+                wr=fr, wg=fg, wb=fb
+            }
             var off = i*4*scrWidth + j*4
-            pixels[off] = r;
-            pixels[off+1] = g;
-            pixels[off+2] = b;
-        }
-    }
-}
-
-function drawCols() {        
-    var i, j;
-    for (var col = 0; col < scrWidth; col += 1) {
-        for (var row = 0; row < scrHeight; row += 1) {
-            // calculate pixel in imagedata
-            i = (row * scrWidth * 4) + (col * 4)
-            j = row*4
-
-            pixels[i]   = columns[col][j];    // r
-            pixels[i+1] = columns[col][j+1];  // g
-            pixels[i+2] = columns[col][j+2];  // b
+            pixels[off] = wr;
+            pixels[off+1] = wg;
+            pixels[off+2] = wb;
         }
     }
 }
