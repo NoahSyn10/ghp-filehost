@@ -1,7 +1,7 @@
 // Javascript Pseudo-3D FPS
 // Author: Noah Synowiec
 
-import {Maps} from './MMaps.js';
+import {Maps} from './Maps.js';
 import {Sprite} from './Sprite.js';
 
 /*******************
