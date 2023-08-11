@@ -1,7 +1,7 @@
 // Javascript Pseudo-3D FPS
 // Author: Noah Synowiec
 
-import {Maps} from './Maps.js';
+import {Maps} from './MMaps.js';
 import {Sprite} from './Sprite.js';
 
 /*******************
@@ -251,8 +251,8 @@ function castRays() {
                 yRayLen += yRayUnitStep;
             }
             // test for collision
-            if (testX >= 0 && testX < mapWidth && testY >= 0 && testY < mapHeight 
-                && coordsInWall(testX, testY)) {
+            if (//testX >= 0 && testX < mapWidth && testY >= 0 && testY < mapHeight &&
+                coordsInWall(testX, testY)) {
                 hitWall = true;
                 wallType = getCell(testX, testY);
             }
@@ -293,9 +293,10 @@ function castRays() {
 
         // write ceiling, wall, and floor to column
         for (var row = 0; row < scrHeight; row += 1) {
-            var rgba, r, g, b;
+            var rgba = [0, 0, 0, 0], r, g, b;
             // ceiling
             if (row < ceiling) {
+                var rgba = [255, 0, 0, 0]
                 // calculate the sample coordinates used for ceiling
                 var ceilDistance = ( 2/( 1-( (row) / (scrHeight/2) ) ) );
 
@@ -317,6 +318,7 @@ function castRays() {
                 b = rgba[2];
             // wall
             } else if (row > ceiling && row <= floor) {
+                var rgba = [0, 255, 0, 0]
                 // calculate sampleY based on current row in column
                 var sampleY = (row - ceiling) / (floor - ceiling);
                 if (wallType == "#")
@@ -331,6 +333,7 @@ function castRays() {
                 b = rgba[2];
             // floor
             } else {
+                var rgba = [0, 0, 255, 0]
                 // calculate the sample coordinates used for the floor and ceiling
                 var floorDistance = ( 2/( ( row-(scrHeight/2) ) / ( scrHeight/2 ) ) );
 
@@ -529,7 +532,7 @@ function drawMiniMap() {
     drawRectImgData(0, 0, mapHeight*size, mapWidth*size, r, g, b);
     // draw FOV
     r=0, g=255, b=0;
-    drawFOV(r, g, b);
+    //drawFOV(r, g, b);
     // draw player
     r=0, g=100, b=225;
     drawRectImgData((playerX-0.5)*size, (playerY-0.5)*size, size, size, r, g, b);
