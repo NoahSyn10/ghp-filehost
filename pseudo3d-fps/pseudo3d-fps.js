@@ -1,6 +1,8 @@
-// Javascript Minesweeper
+// Javascript Pseudo-3D FPS
 // Author: Noah Synowiec
-import {maps} from './maps.js';
+
+import {Maps} from './Maps.js';
+import {Sprite} from './Sprite.js';
 
 /*******************
  * Canvas Variables
@@ -11,7 +13,7 @@ canvas.height = window.innerHeight*4/5;
 canvas.width = window.innerWidth*4/5;
 var scrHeight = canvas.height;
 var scrWidth = canvas.width;
-var miniMapCellSize = 4;
+var miniCellSize = 4;
 
 /*******************
  * Init ImageData
@@ -32,27 +34,37 @@ var playerY = 2;
 var playerA = Math.PI * (.25);
 var playerFOV = Math.PI/3;
 // The map!
-var maplist = new maps();
-var map = maplist.map1;
-var mapWidth = map[0];
-var mapHeight = map[1];
-map = map[2]
+var maplist = new Maps();
+var mapSelection = maplist.map1;
+var mapWidth = mapSelection[0];
+var mapHeight = mapSelection[1];
+var map = mapSelection[2];
+var floorMap = mapSelection[3];
+var ceilMap = mapSelection[4];
 var maxDepth = 64;
 
 // png files
-var wallTexture;
 // var URL = "walltexture.png";
-//var URL = "mossyWall.png";
+
+
 var URL = "hdBrickWall.png";
-await readPng(URL).then(pngData => wallTexture = pngData)
+var wallTexture = await Sprite.create(URL);
 
-var pillarTexture;
 var URL = "concretePillar.png"
-await readPng(URL).then(pngData => pillarTexture = pngData)
+var pillarTexture = await Sprite.create(URL);
 
-var concreteWallTexture;
 var URL = "concreteWall.png"
-await readPng(URL).then(pngData => concreteWallTexture = pngData)
+var concreteWallTexture = await Sprite.create(URL);
+
+var URL = "mossyWall.png";
+var mossyBrickTexture = await Sprite.create(URL);
+
+var URL = "712px_colors.png";
+var colorTileTexture = await Sprite.create(URL);
+
+var URL = "4ktexture.png";
+var fourKtexture = await Sprite.create(URL);
+
 
 /*******************
  * Event Listeners
@@ -96,8 +108,12 @@ function step(timeStamp) {
 window.requestAnimationFrame(step);
 
 function draw() {
+
+    drawRectImgData(0, 0, scrHeight, scrWidth, 0, 0, 0);
+
     move();
     castRays();
+    //OLDcastRays();
     drawMiniMap();
 
     drawRectImgData(scrHeight/2, scrWidth/2, 1, 1, 255, 0, 0);
@@ -117,61 +133,6 @@ function draw() {
         elapsedTime += elapsed;
     }
     ctx.fillText(fps + " fps", scrWidth-(scrWidth/15), 25)
-}
-
-function readPng(URL) {
-    return new Promise(resolve => {
-        var tmpCanvas = document.createElement('canvas');
-        var tmpCtx = tmpCanvas.getContext('2d');
-        var img = new Image();
-        img.onload = () => {
-            tmpCanvas.width = img.width;
-            tmpCanvas.height = img.height;
-            tmpCtx.drawImage(img, 0, 0);
-            var pngData = tmpCtx.getImageData(0, 0, img.width, img.height);
-            resolve(pngData);
-        }
-        img.src = URL;
-    })
-}
-
-function writePng(pngData) {
-    if (!pngData) return;
-    var pngPxls = pngData.data;
-
-    var r, g, b;
-    for (var i = 0; i < pngData.width; i += 1) {
-        for (var j = 0; j < pngData.height; j += 1) {
-            var scrOff = i*4*scrWidth + j*4;
-            var pngOff = i*4*pngData.width + j*4;
-            
-            r = pngPxls[pngOff];
-            g = pngPxls[pngOff+1];
-            b = pngPxls[pngOff+2];
-            var xPrcnt = i / pngData.width;
-            var yPrcnt = j / pngData.height;
-
-            //var rgba = samplePng(pngData, xPrcnt, yPrcnt);
-
-            pixels[scrOff]  = r;
-            pixels[scrOff+1]  = g;
-            pixels[scrOff+2]  = b;
-
-        
-            //pixels[off] = 255;
-           // pixels[off+1] = 255;
-           // pixels[off+2] = 255;
-        }
-    }
-}
-
-function samplePng(pngData, xPrcnt, yPrcnt) {
-    var pngPxls = pngData.data;
-    var xInd = Math.trunc(pngData.width * xPrcnt);
-    var yInd = Math.trunc(pngData.height * yPrcnt);
-
-    var off = yInd*4*pngData.height + xInd*4
-    return [pngPxls[off], pngPxls[off+1], pngPxls[off+2], pngPxls[off+3]]
 }
 
 function move() {
@@ -227,8 +188,180 @@ function move() {
     }
 }
 
-// cast a ray for each column of pixels
+// cast a ray using DDA for each column of pixels
 function castRays() {
+    for (var col = 0; col < scrWidth; col += 1) { 
+        // calculate ray angle and unit vector
+        var rayAngle = (playerA - playerFOV/2) + (col/scrWidth) * playerFOV;
+        var eyeX = Math.sin(rayAngle);
+        var eyeY = Math.cos(rayAngle);
+
+        // calculate hypotenuse for a step of 1 for x and y
+        var xRayUnitStep = Math.sqrt(1 + (eyeY/eyeX)**2);
+        var yRayUnitStep = Math.sqrt(1 + (eyeX/eyeY)**2);
+
+        // init test coords at players location
+        var testX = Math.trunc(playerX);
+        var testY = Math.trunc(playerY);
+
+        // track current length of each ray
+        var xRayLen;
+        var yRayLen;
+
+        // track step direction for each ray
+        var xStep;
+        var yStep;
+
+        // set step directions and start each ray at first axis collision
+        if (eyeX < 0) {
+            xStep = -1;
+            xRayLen = (playerX - testX) * xRayUnitStep
+        } else {
+            xStep = 1;
+            xRayLen = (1 - playerX + testX) * xRayUnitStep
+        }
+
+        if (eyeY < 0) {
+            yStep = -1;
+            yRayLen = (playerY - testY) * yRayUnitStep;
+        } else {    
+            yStep = 1;
+            yRayLen = (1 - playerY + testY) * yRayUnitStep;
+        }
+
+        var hitWall = false;
+        var distance = 0;
+        var wallType = '.';
+
+        // track ray being tested to determine the axis which is hit
+        var testingXray = false;
+        var testingYray = false;
+
+        while (!hitWall && distance < maxDepth) {
+            // walk along shortest ray
+            if (xRayLen <= yRayLen) {
+                testingXray = true, testingYray = false;
+                testX += xStep;
+                distance = xRayLen;
+                xRayLen += xRayUnitStep;
+            } else {
+                testingXray = false, testingYray = true;
+                testY += yStep;
+                distance = yRayLen;
+                yRayLen += yRayUnitStep;
+            }
+            // test for collision
+            if (testX >= 0 && testX < mapWidth && testY >= 0 && testY < mapHeight 
+                && coordsInWall(testX, testY)) {
+                hitWall = true;
+                wallType = getCell(testX, testY);
+            }
+        }
+        
+        // Draw FOV lines for collision
+        //if (col % 10 == 0) 
+        //if (col == 0 || col == Math.trunc(scrWidth/2) || col == scrWidth-1)
+        //    drawLineImgData(playerY * miniCellSize, playerX * miniCellSize, playerY*miniCellSize + eyeY * distance * miniCellSize, playerX*miniCellSize + eyeX * distance * miniCellSize, 0 , 255, 0);
+
+        // get exact coords of collision
+        var hitX = playerX + eyeX * distance;
+        var hitY = playerY + eyeY * distance;
+
+        // hold x and y value to sample from texture
+        var sampleX;
+        var sampleY;
+        
+        // determine which side of the cell was hit
+        // get corresponding x-coord in that plane
+        if (testingXray) {
+            if (xStep > 0) {
+                sampleX = 1 - hitY + Math.trunc(hitY);
+            } else {
+                sampleX = hitY - Math.trunc(hitY);
+            }
+        } else if (testingYray) {
+            if (yStep > 0) {
+                sampleX = hitX - Math.trunc(hitX);
+            } else {
+                sampleX = 1 - hitX + Math.trunc(hitX);
+            }
+        }
+
+        // calculate ceiling and floor sizes for col based on distance
+        var ceiling = (scrHeight/2) - scrHeight/distance;
+        var floor = scrHeight - ceiling;
+
+        // write ceiling, wall, and floor to column
+        for (var row = 0; row < scrHeight; row += 1) {
+            var rgba, r, g, b;
+            // ceiling
+            if (row < ceiling) {
+                // calculate the sample coordinates used for ceiling
+                var ceilDistance = ( 2/( 1-( (row) / (scrHeight/2) ) ) );
+
+                var ceilX = (eyeX * ceilDistance + playerX);
+                var ceilY = (eyeY * ceilDistance + playerY);
+
+                var ceilSampleX = (ceilX) - Math.trunc(ceilX) 
+                var ceilSampleY = (ceilY) - Math.trunc(ceilY)
+
+                var ceilType = ceilMap[Math.trunc(ceilX) * mapWidth + Math.trunc(ceilY)];
+
+                if (ceilType == 0)
+                    rgba = pillarTexture.sample(ceilSampleX, ceilSampleY)
+                if (ceilType == 1)
+                    rgba = mossyBrickTexture.sample(ceilSampleX, ceilSampleY)
+
+                r = rgba[0];
+                g = rgba[1];
+                b = rgba[2];
+            // wall
+            } else if (row > ceiling && row <= floor) {
+                // calculate sampleY based on current row in column
+                var sampleY = (row - ceiling) / (floor - ceiling);
+                if (wallType == "#")
+                    //rgba = wallTexture.sample(sampleX, sampleY);
+                    rgba = wallTexture.sample(sampleX, sampleY);
+                if (wallType == "P")
+                    rgba = fourKtexture.sample(sampleX, sampleY);
+                if (wallType == "C")
+                    rgba = concreteWallTexture.sample(sampleX, sampleY);
+                r = rgba[0];
+                g = rgba[1];
+                b = rgba[2];
+            // floor
+            } else {
+                // calculate the sample coordinates used for the floor and ceiling
+                var floorDistance = ( 2/( ( row-(scrHeight/2) ) / ( scrHeight/2 ) ) );
+
+                var floorX = (eyeX * floorDistance + playerX);
+                var floorY = (eyeY * floorDistance + playerY);
+
+                var floorSampleX = (floorX) - Math.trunc(floorX) 
+                var floorSampleY = (floorY) - Math.trunc(floorY)
+
+                var floorType = floorMap[Math.trunc(floorX) * mapWidth + Math.trunc(floorY)];
+
+                if (floorType == 0)
+                    rgba = mossyBrickTexture.sample(floorSampleX, floorSampleY)
+                if (floorType == 1)
+                    rgba = colorTileTexture.sample(floorSampleX, floorSampleY)
+                r = rgba[0];
+                g = rgba[1];
+                b = rgba[2];
+            }
+            // write column to imagedata
+            var off = row*4*scrWidth + col*4
+            pixels[off] = r;
+            pixels[off+1] = g;
+            pixels[off+2] = b; 
+        }
+    }
+}
+
+/*
+// cast a ray for each column of pixels
+function OLDcastRays() {
     for (var col = 0; col < scrWidth; col += 1) {
         // calculate ray angle and unit vector
         var rayAngle = (playerA - playerFOV/2) + (col/scrWidth) * playerFOV;
@@ -303,21 +436,33 @@ function castRays() {
                 var rgba = [0, 0, 0, 0];
                 sampleY = (row - ceiling) / (floor - ceiling);
                 if (wallType == "#")
-                    rgba = samplePng(wallTexture, sampleX, sampleY)
+                    //rgba = wallTexture.sample(sampleX, sampleY);
+                    rgba = fourKtexture.sample(sampleX, sampleY);
                 if (wallType == "P")
-                    rgba = samplePng(pillarTexture, sampleX, sampleY)
+                    rgba = pillarTexture.sample(sampleX, sampleY);
                 if (wallType == "C")
-                    rgba = samplePng(concreteWallTexture, sampleX, sampleY)
+                    rgba = concreteWallTexture.sample(sampleX, sampleY);
                 r = rgba[0];
                 g = rgba[1];
                 b = rgba[2];
 
             // floor
             } else {
-                floorShade = (row / scrHeight) * 150;
-                r = floorShade;
-                g = floorShade * .75;
-                b = floorShade * .65;
+                //floorShade = (row / scrHeight) * 150;
+                //floorShade = ((2/((row-(scrHeight/2)) / (scrHeight/2))) / 10)*255
+                //r = floorShade;
+                //g = floorShade * .75;
+                //b = floorShade * .65;
+
+                
+                var floorDistance = ((2/((row-(scrHeight/2)) / (scrHeight/2))));
+                sampleX = (eyeX * floorDistance + playerX) - Math.trunc(eyeX * floorDistance + playerX) 
+                sampleY = (eyeY * floorDistance + playerY) - Math.trunc(eyeY * floorDistance + playerY)
+
+                var rgba = mossyBrickTexture.sample(sampleX, sampleY)
+                r = rgba[0];
+                g = rgba[1];
+                b = rgba[2];
             }
             // write column to imagedata
             var off = row*4*scrWidth + col*4
@@ -326,11 +471,12 @@ function castRays() {
             pixels[off+2] = b;
         }
     }
-}
+}*/
+
 
 function drawFOV(r, g, b) {
     // calculate ray angle and unit vector
-    var size = miniMapCellSize;
+    var size = miniCellSize;
     var granularity = 64;
     for (var i = 0; i < granularity; i += 1) {
         var rayAngle = (playerA - playerFOV/2) + (i/granularity) * playerFOV;
@@ -375,7 +521,7 @@ function drawFOV(r, g, b) {
 }
 
 function drawMiniMap() {
-    var size = miniMapCellSize;
+    var size = miniCellSize;
     var r, g, b;
 
     // draw floor
@@ -386,7 +532,7 @@ function drawMiniMap() {
     drawFOV(r, g, b);
     // draw player
     r=0, g=100, b=225;
-    drawRectImgData(Math.trunc(playerX)*size, Math.trunc(playerY)*size, size, size, r, g, b);
+    drawRectImgData((playerX-0.5)*size, (playerY-0.5)*size, size, size, r, g, b);
     // draw player and walls
     for (var col = 0; col < mapWidth; col += 1) {
         for (var row = 0; row < mapHeight; row += 1) {
@@ -400,7 +546,7 @@ function drawMiniMap() {
 }
 
 function clickMiniMap(x, y) {
-    var size = miniMapCellSize;
+    var size = miniCellSize;
     var cellX = Math.trunc(x/size);
     var cellY = Math.trunc(y/size);
     var repl;
@@ -534,7 +680,7 @@ function keyUpHandler(e) {
     if (e.key == "Shift")
         sprintPresed = false;
     if (e.key in ["1","2","3","4","5","6","7","8","9"]) 
-        miniMapCellSize = parseFloat(e.key);
+        miniCellSize = parseFloat(e.key);
 }
 
 function mouseUpHandler(e) {
