@@ -32,6 +32,7 @@ for (var i = 0; i < pixels.length; i += 4) {
 var playerX = 2;
 var playerY = 2;
 var playerA = Math.PI * (.25);
+var playerVA = .5; // vertical angle
 var playerFOV = Math.PI/3;
 // The map!
 var maplist = new Maps();
@@ -46,25 +47,19 @@ var maxDepth = 64;
 // png files
 // var URL = "walltexture.png";
 
+var textureList = [null];
 
-var URL = "hdBrickWall.png";
-var wallTexture = await Sprite.create(URL);
+/*1*/ textureList.push(await Sprite.create("concretePillar.png"));
 
-var URL = "concretePillar.png"
-var pillarTexture = await Sprite.create(URL);
+/*2*/ textureList.push(await Sprite.create("mossyWall.png"));
 
-var URL = "concreteWall.png"
-var concreteWallTexture = await Sprite.create(URL);
+/*3*/ textureList.push(await Sprite.create("hdBrickWall.png"));
 
-var URL = "mossyWall.png";
-var mossyBrickTexture = await Sprite.create(URL);
+/*4*/ textureList.push(await Sprite.create("concreteWall.png"));
 
-var URL = "712px_colors.png";
-var colorTileTexture = await Sprite.create(URL);
+/*5*/ textureList.push(await Sprite.create("712px_colors.png"));
 
-var URL = "4ktexture.png";
-var fourKtexture = await Sprite.create(URL);
-
+/*6*/ textureList.push(await Sprite.create("4ktexture.png"));
 
 /*******************
  * Event Listeners
@@ -78,7 +73,7 @@ document.addEventListener("contextmenu", (event) => {
     event.preventDefault();});
 // track key presses
 var wPressed, aPressed, sPressed, dPressed ;
-var leftArrowPressed, rightArrowPressed;
+var leftArrowPressed, rightArrowPressed, upArrowPressed, downArrowPressed;
 var sprintPresed;
 var mouseX=0, mouseY=0;
 
@@ -116,11 +111,6 @@ function draw() {
     //OLDcastRays();
     drawMiniMap();
 
-    drawRectImgData(scrHeight/2, scrWidth/2, 1, 1, 255, 0, 0);
-    //drawLineImgData(500, 300, mouseX, mouseY, 0 , 255, 0);
-
-    //writePng(wallTexture);
-
     ctx.putImageData(imgdata, 0, 0); 
 
     // calculate and draw framerate
@@ -152,6 +142,12 @@ function move() {
     }
     if (rightArrowPressed) { // turn right  
         playerA += turnSpeed * elapsed;
+    }
+    if (upArrowPressed) {  // turn left
+        playerVA += turnSpeed * elapsed;
+    }
+    if (downArrowPressed) { // turn right  
+        playerVA -= turnSpeed * elapsed;
     }
     // walk
     if (wPressed) { // forward
@@ -287,68 +283,65 @@ function castRays() {
             }
         }
 
+        // Loop up/down with mouse
+        //playerVA = (scrHeight-mouseY)/scrHeight;
+
+        // vertical angle coefficient
+        // screen height is divided by the vaCoef
+        var vaCoef = 1/(playerVA);
+
         // calculate ceiling and floor sizes for col based on distance
-        var ceiling = (scrHeight/2) - scrHeight/distance;
-        var floor = scrHeight - ceiling;
+        var ceiling = (scrHeight/vaCoef) - scrHeight/distance;
+        var floor = (scrHeight/vaCoef) + scrHeight/distance;
+        //var floor = scrHeight - ceiling;
 
         // write ceiling, wall, and floor to column
         for (var row = 0; row < scrHeight; row += 1) {
             var rgba = [0, 0, 0, 0], r, g, b;
             // ceiling
             if (row < ceiling) {
-                var rgba = [255, 0, 0, 0]
+                rgba = [255, 0, 0, 0]
                 // calculate the sample coordinates used for ceiling
-                var ceilDistance = ( 2/( 1-( (row) / (scrHeight/2) ) ) );
-
+                
+                var ceilDistance = ( vaCoef/( 1-( (row) / (scrHeight/vaCoef) ) ) );
+                
                 var ceilX = (eyeX * ceilDistance + playerX);
                 var ceilY = (eyeY * ceilDistance + playerY);
-
                 var ceilSampleX = (ceilX) - Math.trunc(ceilX) 
                 var ceilSampleY = (ceilY) - Math.trunc(ceilY)
-
+                
                 var ceilType = ceilMap[Math.trunc(ceilX) * mapWidth + Math.trunc(ceilY)];
-
-                if (ceilType == 0)
-                    rgba = pillarTexture.sample(ceilSampleX, ceilSampleY)
-                if (ceilType == 1)
-                    rgba = mossyBrickTexture.sample(ceilSampleX, ceilSampleY)
-
+                rgba = textureList[ceilType].sample(ceilSampleX, ceilSampleY);
+                
                 r = rgba[0];
                 g = rgba[1];
                 b = rgba[2];
             // wall
             } else if (row > ceiling && row <= floor) {
-                var rgba = [0, 255, 0, 0]
+                rgba = [0, 255, 0, 0]
                 // calculate sampleY based on current row in column
+                
                 var sampleY = (row - ceiling) / (floor - ceiling);
-                if (wallType == "#")
-                    //rgba = wallTexture.sample(sampleX, sampleY);
-                    rgba = wallTexture.sample(sampleX, sampleY);
-                if (wallType == "P")
-                    rgba = fourKtexture.sample(sampleX, sampleY);
-                if (wallType == "C")
-                    rgba = concreteWallTexture.sample(sampleX, sampleY);
+                rgba = textureList[wallType].sample(sampleX, sampleY);
+
                 r = rgba[0];
                 g = rgba[1];
                 b = rgba[2];
             // floor
             } else {
-                var rgba = [0, 0, 255, 0]
+                rgba = [0, 0, 255, 0]
                 // calculate the sample coordinates used for the floor and ceiling
-                var floorDistance = ( 2/( ( row-(scrHeight/2) ) / ( scrHeight/2 ) ) );
+                
+                var floorDistance = ( vaCoef/( ( row-(scrHeight/vaCoef) ) / ( scrHeight/vaCoef ) ) );
 
                 var floorX = (eyeX * floorDistance + playerX);
                 var floorY = (eyeY * floorDistance + playerY);
-
                 var floorSampleX = (floorX) - Math.trunc(floorX) 
                 var floorSampleY = (floorY) - Math.trunc(floorY)
 
                 var floorType = floorMap[Math.trunc(floorX) * mapWidth + Math.trunc(floorY)];
-
-                if (floorType == 0)
-                    rgba = mossyBrickTexture.sample(floorSampleX, floorSampleY)
-                if (floorType == 1)
-                    rgba = colorTileTexture.sample(floorSampleX, floorSampleY)
+                rgba = textureList[floorType].sample(floorSampleX, floorSampleY)
+                
                 r = rgba[0];
                 g = rgba[1];
                 b = rgba[2];
@@ -361,121 +354,6 @@ function castRays() {
         }
     }
 }
-
-/*
-// cast a ray for each column of pixels
-function OLDcastRays() {
-    for (var col = 0; col < scrWidth; col += 1) {
-        // calculate ray angle and unit vector
-        var rayAngle = (playerA - playerFOV/2) + (col/scrWidth) * playerFOV;
-        var eyeX = Math.sin(rayAngle);
-        var eyeY = Math.cos(rayAngle);
-
-        // vars to track ray
-        var distanceToWall = 0;
-        var stepLen = 0.025;
-        var hitWall = false;
-
-        var sampleX, sampleY;
-        var wallType = ".";
-        
-        // increment ray length until inside of a wall
-        while (!hitWall && distanceToWall < maxDepth) {
-            distanceToWall += stepLen;
-            var testX = (playerX + eyeX * distanceToWall);
-            var testY = (playerY + eyeY * distanceToWall);
-
-            if (testX < 0 || testX >= mapWidth || testY < 0 || testY >= mapHeight) {
-                //hitWall = true;
-                //distanceToWall = maxDepth;
-            } else {
-                if (coordsInWall(testX, testY)) {
-                    hitWall = true;
-                    wallType = getCell(testX, testY)
-
-                    var cellMidX = Math.trunc(testX) + 0.5;
-                    var cellMidY = Math.trunc(testY) + 0.5;
-
-                    var testAngle = Math.atan2((testY - cellMidY), (testX - cellMidX));
-
-                    if (testAngle >= -Math.PI*(1/4) && testAngle < Math.PI*(1/4)) {
-                        sampleX = testY - Math.trunc(testY);
-                    }
-                    if (testAngle >= Math.PI*(1/4) && testAngle < Math.PI*(3/4)) {
-                        sampleX = testX- Math.trunc(testX);
-                    }
-                    if (testAngle < -Math.PI*(1/4) && testAngle >= -Math.PI*(3/4)) {
-                        sampleX = testX - Math.trunc(testX);
-                    }
-                    if (testAngle >= Math.PI*(3/4) || testAngle < -Math.PI*(3/4)) {
-                        sampleX = testY - Math.trunc(testY);
-                    }
-                }
-            }
-
-            
-        }
-        
-        // calculate ceiling and floor sizes for col based on distance
-        var ceiling = (scrHeight/2) - scrHeight/distanceToWall;
-        var floor = scrHeight - ceiling;
-
-        // shading vars
-        var ceilShade;
-        var wallShade = 255 - (distanceToWall/maxDepth) * 255
-        var floorShade = 0;
-
-        // write ceiling, wall, and floor to column
-        for (var row = 0; row < scrHeight; row += 1) {
-            var r, g, b;
-            // ceiling
-            if (row < ceiling) {
-                ceilShade = ((scrHeight-(row**1.05)) / scrHeight) * 100;
-                r = ceilShade;
-                g = ceilShade;
-                b = ceilShade;
-            // wall
-            } else if (row > ceiling && row <= floor) {
-                var rgba = [0, 0, 0, 0];
-                sampleY = (row - ceiling) / (floor - ceiling);
-                if (wallType == "#")
-                    //rgba = wallTexture.sample(sampleX, sampleY);
-                    rgba = fourKtexture.sample(sampleX, sampleY);
-                if (wallType == "P")
-                    rgba = pillarTexture.sample(sampleX, sampleY);
-                if (wallType == "C")
-                    rgba = concreteWallTexture.sample(sampleX, sampleY);
-                r = rgba[0];
-                g = rgba[1];
-                b = rgba[2];
-
-            // floor
-            } else {
-                //floorShade = (row / scrHeight) * 150;
-                //floorShade = ((2/((row-(scrHeight/2)) / (scrHeight/2))) / 10)*255
-                //r = floorShade;
-                //g = floorShade * .75;
-                //b = floorShade * .65;
-
-                
-                var floorDistance = ((2/((row-(scrHeight/2)) / (scrHeight/2))));
-                sampleX = (eyeX * floorDistance + playerX) - Math.trunc(eyeX * floorDistance + playerX) 
-                sampleY = (eyeY * floorDistance + playerY) - Math.trunc(eyeY * floorDistance + playerY)
-
-                var rgba = mossyBrickTexture.sample(sampleX, sampleY)
-                r = rgba[0];
-                g = rgba[1];
-                b = rgba[2];
-            }
-            // write column to imagedata
-            var off = row*4*scrWidth + col*4
-            pixels[off] = r;
-            pixels[off+1] = g;
-            pixels[off+2] = b;
-        }
-    }
-}*/
-
 
 function drawFOV(r, g, b) {
     // calculate ray angle and unit vector
@@ -493,7 +371,6 @@ function drawFOV(r, g, b) {
         var miniPlayerX = Math.trunc(playerX) + .5
         var miniPlayerY = Math.trunc(playerY) + .5
 
-        
         // increment ray length until inside of a wall
         while (distanceToWall < maxDepth) {
             distanceToWall += stepLen;
@@ -504,17 +381,6 @@ function drawFOV(r, g, b) {
             var drawY = Math.trunc((miniPlayerY + eyeY * distanceToWall*size));
 
             if (coordsInWall(testX, testY)) {
-                /** Draw with lines? *
-                distanceToWall -= stepLen;
-                
-                var drawX = Math.trunc((eyeX * (distanceToWall*(size))));
-                var drawY = Math.trunc((eyeY * (distanceToWall*(size))));
-
-                var startX = Math.trunc(miniPlayerX*(size));
-                var startY = Math.trunc(miniPlayerY*(size));
-
-                drawLineImgData(startY, startX, startY + drawY, startX + drawX, r, g, b);
-                /** */
                 break;
             }
             drawRectImgData(Math.trunc(miniPlayerX*(size-1)) + drawX, Math.trunc(miniPlayerY*(size-1)) + drawY, 1, 1, r, g, b);
@@ -568,7 +434,7 @@ function coordsInWall(x, y) {
     var truncX = Math.trunc(x);
     var truncY = Math.trunc(y);
     if (!(x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) && 
-        map[truncX * mapWidth + truncY] != ".") {
+        map[truncX * mapWidth + truncY]) {
         return true;
     } else {
         return false;
@@ -663,6 +529,10 @@ function keyDownHandler(e) {
         leftArrowPressed = true;
     if (e.key == "ArrowRight") 
         rightArrowPressed = true;
+    if (e.key == "ArrowUp") 
+        upArrowPressed = true;
+    if (e.key == "ArrowDown") 
+        downArrowPressed = true;
     if (e.key == "Shift")
         sprintPresed = true;
 }
@@ -680,6 +550,10 @@ function keyUpHandler(e) {
         leftArrowPressed = false;
     if (e.key == "ArrowRight") 
         rightArrowPressed = false;
+    if (e.key == "ArrowUp") 
+        upArrowPressed = false;
+    if (e.key == "ArrowDown") 
+        downArrowPressed = false;
     if (e.key == "Shift")
         sprintPresed = false;
     if (e.key in ["1","2","3","4","5","6","7","8","9"]) 
