@@ -56,11 +56,15 @@ export class Sprite {
     sample(xPrcnt, yPrcnt) {
         var xInd = Math.trunc(this.width * xPrcnt);
         var yInd = Math.trunc(this.height * yPrcnt);
+
+        if (0 > xInd || xInd >= this.width || 0 > yInd || yInd >= this.height ) {
+            return [0, 0, 0, 0];
+        }
     
         var off = yInd*4*this.height + xInd*4
         return [this.pixelArray[off],   // r
                 this.pixelArray[off+1], // g
                 this.pixelArray[off+2], // b
-                this.pixelArray[off+3]] // a
+                this.pixelArray[off+3]];// a
     }
 }

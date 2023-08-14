@@ -29,9 +29,10 @@ for (var i = 0; i < pixels.length; i += 4) {
  * Game Variables
  *******************/
 // Player attributes
-var playerX = 2;
-var playerY = 2;
-var playerA = Math.PI * (.25);
+var playerX = 2;    // = 11;
+var playerY = 2;    // = 13;
+var playerZ = 0;
+var playerA = Math.PI * (.25);  // *(2.5);
 var playerVA = .5; // vertical angle
 var playerFOV = Math.PI/3;
 // The map!
@@ -66,16 +67,22 @@ var textureList = [null];
  *******************/
 // detect click
 document.addEventListener("mouseup", mouseUpHandler);
+document.addEventListener("mousemove", mouseMoveHandler);
 document.addEventListener("keydown", keyDownHandler);
 document.addEventListener("keyup", keyUpHandler);
+// trap mouse in canvas
+canvas.addEventListener("click", async () => {
+    await canvas.requestPointerLock();
+  });
 // prevent right click
 document.addEventListener("contextmenu", (event) => {
     event.preventDefault();});
 // track key presses
 var wPressed, aPressed, sPressed, dPressed ;
 var leftArrowPressed, rightArrowPressed, upArrowPressed, downArrowPressed;
+var shiftPressed, spacePressed;
 var sprintPresed;
-var mouseX=0, mouseY=0;
+var mouseX=0, mouseY=0, mouseDX=0, mouseDY=0;
 
 ctx.font = "24px serif";
 ctx.fillStyle = "orange";
@@ -123,33 +130,64 @@ function draw() {
         elapsedTime += elapsed;
     }
     ctx.fillText(fps + " fps", scrWidth-(scrWidth/15), 25)
+
+    ctx.fillText(document.pointerLockElement == canvas, scrWidth-(scrWidth/5), 25)
+
 }
 
 function move() {
-    var turnSpeed = 0.002;
+    var keyTurnSpeed = 0.002;
+    var mouseTurnSpeed = 0.0001;
+    var mouseMode = document.pointerLockElement == canvas;
     var moveSpeed = 0.01;
+    var verticalMoveSpeed = .01;
     var strafeSpeed = moveSpeed/2;
     if (sprintPresed) {
         moveSpeed *= 2; 
         strafeSpeed *= 2; 
-        turnSpeed*= 2;
+        keyTurnSpeed*= 2;
+        mouseTurnSpeed *= 2;
     }
-    var dx, dy;
+    var dx, dy, da;
 
-    // rotate
-    if (leftArrowPressed) {  // turn left
-        playerA -= turnSpeed * elapsed;
+    // Look around
+    if ((mouseDX < 0 && mouseMode) || (leftArrowPressed && !mouseMode)) {  // turn left
+        if (mouseMode) {
+            playerA += mouseTurnSpeed * elapsed * mouseDX;
+            mouseDX = 0;
+        } else {
+            playerA -= keyTurnSpeed * elapsed;
+        }
     }
-    if (rightArrowPressed) { // turn right  
-        playerA += turnSpeed * elapsed;
+    if ((mouseDX > 0 && mouseMode) || (rightArrowPressed && !mouseMode)) { // turn right  
+        if (mouseMode) {
+            playerA += mouseTurnSpeed * elapsed * mouseDX;
+            mouseDX = 0;
+        } else {
+            playerA += keyTurnSpeed * elapsed;
+        }
     }
-    if (upArrowPressed) {  // turn left
-        playerVA += turnSpeed * elapsed;
+    if ((mouseDY < 0 && mouseMode) || (upArrowPressed && !mouseMode)) {  // turn left
+        if ( mouseMode ) {
+            da = mouseTurnSpeed * elapsed * mouseDY;
+        } else {
+            da = -keyTurnSpeed * elapsed;
+        }
+        //if (playerVA + da <=2.5)
+            playerVA -= da;
+        mouseDY = 0;
     }
-    if (downArrowPressed) { // turn right  
-        playerVA -= turnSpeed * elapsed;
+    if ((mouseDY > 0 && mouseMode) || (downArrowPressed && !mouseMode)) { // turn right  
+        if ( mouseMode ) {
+            da = mouseTurnSpeed * elapsed * mouseDY;
+        } else {
+            da = keyTurnSpeed * elapsed;
+        }
+        //if (playerVA + da >= -1.5)
+            playerVA -= da;
+        mouseDY = 0;
     }
-    // walk
+    // Walk around
     if (wPressed) { // forward
         dx = Math.sin(playerA) * moveSpeed * elapsed;
         dy = Math.cos(playerA) * moveSpeed * elapsed;
@@ -182,6 +220,13 @@ function move() {
         if (!coordsInWall(playerX, playerY + dy)) 
             playerY += dy;
     }
+    // Vertical movement
+    if (spacePressed) {
+        playerZ += verticalMoveSpeed * elapsed;
+    }
+    if (shiftPressed) {
+        playerZ -= verticalMoveSpeed * elapsed;
+    }
 }
 
 // cast a ray using DDA for each column of pixels
@@ -191,6 +236,9 @@ function castRays() {
         var rayAngle = (playerA - playerFOV/2) + (col/scrWidth) * playerFOV;
         var eyeX = Math.sin(rayAngle);
         var eyeY = Math.cos(rayAngle);
+
+        // coefficient to correct draw distance based on ray angle
+        var fisheyeCoeff = Math.cos(rayAngle - playerA);
 
         // calculate hypotenuse for a step of 1 for x and y
         var xRayUnitStep = Math.sqrt(1 + (eyeY/eyeX)**2);
@@ -226,12 +274,12 @@ function castRays() {
         }
 
         var hitWall = false;
-        var distance = 0;
+        var distance = 0;   // distance from eye to wall
+        var range = 0;      // distance from eye 'plane' to wall
         var wallType = '.';
 
         // track ray being tested to determine the axis which is hit
-        var testingXray = false;
-        var testingYray = false;
+        var testingXray = false, testingYray = false;
 
         while (!hitWall && distance < maxDepth) {
             // walk along shortest ray
@@ -251,6 +299,8 @@ function castRays() {
                 coordsInWall(testX, testY)) {
                 hitWall = true;
                 wallType = getCell(testX, testY);
+                // Adjust distance to fix fisheye
+                range = distance * fisheyeCoeff;
             }
         }
         
@@ -290,20 +340,38 @@ function castRays() {
         // screen height is divided by the vaCoef
         var vaCoef = 1/(playerVA);
 
-        // calculate ceiling and floor sizes for col based on distance
-        var ceiling = (scrHeight/vaCoef) - scrHeight/distance;
-        var floor = (scrHeight/vaCoef) + scrHeight/distance;
-        //var floor = scrHeight - ceiling;
+        /**********************************************************************************************************************
+         * Code directly from Elgen T
+         **********************************************************************************************************************/
+
+        var drawHeight = 0.5 - playerZ;
+        //var wallLineHeight = scrHeight/range;
+        //var wallStart = scrHeight/vaCoef - wallLineHeight + drawHeight*wallLineHeight 
+        //var wallEnd = scrHeight/vaCoef + wallLineHeight + drawHeight*wallLineHeight  
+
+
+        /**********************************************************************************************************************
+         * Code directly from Elgen T
+         **********************************************************************************************************************/
+
+        // calculate wall start and end for col based on distance
+        var wallLineHeight = scrHeight/range;
+        var wallStart= scrHeight/vaCoef - wallLineHeight + drawHeight * wallLineHeight
+        var wallEnd= scrHeight/vaCoef + wallLineHeight + drawHeight * wallLineHeight
+        
+        //var wallStart= (scrHeight/vaCoef) - scrHeight/range + drawHeight*(scrHeight/range)
+        //var wallEnd= (scrHeight/vaCoef) + scrHeight/range + drawHeight*(scrHeight/range)
+        
 
         // write ceiling, wall, and floor to column
         for (var row = 0; row < scrHeight; row += 1) {
             var rgba = [0, 0, 0, 0], r, g, b;
             // ceiling
-            if (row < ceiling) {
+            if (row < wallStart) {
                 rgba = [255, 0, 0, 0]
                 // calculate the sample coordinates used for ceiling
                 
-                var ceilDistance = ( vaCoef/( 1-( (row) / (scrHeight/vaCoef) ) ) );
+                var ceilDistance = ( vaCoef/( 1-( (row) / (scrHeight/vaCoef) ) ) ) / fisheyeCoeff;
                 
                 var ceilX = (eyeX * ceilDistance + playerX);
                 var ceilY = (eyeY * ceilDistance + playerY);
@@ -311,17 +379,17 @@ function castRays() {
                 var ceilSampleY = (ceilY) - Math.trunc(ceilY)
                 
                 var ceilType = ceilMap[Math.trunc(ceilX) * mapWidth + Math.trunc(ceilY)];
-                rgba = textureList[ceilType].sample(ceilSampleX, ceilSampleY);
+                //rgba = textureList[ceilType].sample(ceilSampleX, ceilSampleY);
                 
                 r = rgba[0];
                 g = rgba[1];
                 b = rgba[2];
             // wall
-            } else if (row > ceiling && row <= floor) {
+            } else if (row > wallStart && row <= wallEnd) {
                 rgba = [0, 255, 0, 0]
                 // calculate sampleY based on current row in column
                 
-                var sampleY = (row - ceiling) / (floor - ceiling);
+                var sampleY = (row - wallStart) / (wallEnd - wallStart);
                 rgba = textureList[wallType].sample(sampleX, sampleY);
 
                 r = rgba[0];
@@ -332,7 +400,7 @@ function castRays() {
                 rgba = [0, 0, 255, 0]
                 // calculate the sample coordinates used for the floor and ceiling
                 
-                var floorDistance = ( vaCoef/( ( row-(scrHeight/vaCoef) ) / ( scrHeight/vaCoef ) ) );
+                var floorDistance = ( vaCoef/( ( row-(scrHeight/vaCoef) ) / ( scrHeight/vaCoef ) ) ) / fisheyeCoeff;
 
                 var floorX = (eyeX * floorDistance + playerX);
                 var floorY = (eyeY * floorDistance + playerY);
@@ -340,7 +408,7 @@ function castRays() {
                 var floorSampleY = (floorY) - Math.trunc(floorY)
 
                 var floorType = floorMap[Math.trunc(floorX) * mapWidth + Math.trunc(floorY)];
-                rgba = textureList[floorType].sample(floorSampleX, floorSampleY)
+                //rgba = textureList[floorType].sample(floorSampleX, floorSampleY)
                 
                 r = rgba[0];
                 g = rgba[1];
@@ -533,8 +601,12 @@ function keyDownHandler(e) {
         upArrowPressed = true;
     if (e.key == "ArrowDown") 
         downArrowPressed = true;
-    if (e.key == "Shift")
+    if (e.key == "Tab")
         sprintPresed = true;
+    if (e.key == "Shift")
+        shiftPressed = true;
+    if (e.key == " ")
+        spacePressed = true;
 }
 
 function keyUpHandler(e) {
@@ -554,10 +626,21 @@ function keyUpHandler(e) {
         upArrowPressed = false;
     if (e.key == "ArrowDown") 
         downArrowPressed = false;
-    if (e.key == "Shift")
+    if (e.key == "Tab")
         sprintPresed = false;
+    if (e.key == "Shift")
+        shiftPressed = false;
+    if (e.key == " ")
+        spacePressed = false;
     if (e.key in ["1","2","3","4","5","6","7","8","9"]) 
         miniCellSize = parseFloat(e.key);
+}
+
+function mouseMoveHandler(e) {
+    if (e.srcElement.localName == "canvas") {
+        mouseX = e.offsetX, mouseY = e.offsetY;
+        mouseDX += e.movementX, mouseDY += e.movementY;
+    }
 }
 
 function mouseUpHandler(e) {
