@@ -24,7 +24,6 @@ var pixels = imgdata.data;
 for (var i = 0; i < pixels.length; i += 4) {
     pixels[i+3] = 255;
 }
-var zBuffer = new Array(scrWidth * scrHeight);
 
 /*******************
  * Game Variables
@@ -113,7 +112,6 @@ window.requestAnimationFrame(step);
 function draw() {
 
     drawRectImgData(0, 0, scrHeight, scrWidth, 0, 0, 0);
-    zBuffer = new Array(scrHeight*scrWidth)
 
     move();
     castRays();
@@ -142,7 +140,7 @@ function move() {
     var mouseTurnSpeed = 0.0001;
     var mouseMode = document.pointerLockElement == canvas;
     var moveSpeed = 0.01;
-    var verticalMoveSpeed = .01;
+    var verticalMoveSpeed = .5;
     var strafeSpeed = moveSpeed/2;
     if (sprintPresed) {
         moveSpeed *= 2; 
@@ -222,13 +220,13 @@ function move() {
         if (!coordsInWall(playerX, playerY + dy)) 
             playerY += dy;
     }
-    // Vertical movement
+    /*/ Vertical movement
     if (spacePressed) {
         playerZ += verticalMoveSpeed * elapsed;
     }
     if (shiftPressed) {
         playerZ -= verticalMoveSpeed * elapsed;
-    }
+    }*/
 }
 
 // cast a ray using DDA for each column of pixels
@@ -283,7 +281,7 @@ function castRays() {
         // track ray being tested to determine the axis which is hit
         var testingXray = false, testingYray = false;
 
-        while (distance < maxDepth) {
+        while (!hitWall && distance < maxDepth) {
             // walk along shortest ray
             if (xRayLen <= yRayLen) {
                 testingXray = true, testingYray = false;
@@ -303,119 +301,106 @@ function castRays() {
                 wallType = getCell(testX, testY);
                 // Adjust distance to fix fisheye
                 range = distance * fisheyeCoeff;
-            } else {
-                continue;
             }
+        }
         
-            // Draw FOV lines for collision
-            //if (col % 10 == 0) 
-            //if (col == 0 || col == Math.trunc(scrWidth/2) || col == scrWidth-1)
-            //    drawLineImgData(playerY * miniCellSize, playerX * miniCellSize, playerY*miniCellSize + eyeY * distance * miniCellSize, playerX*miniCellSize + eyeX * distance * miniCellSize, 0 , 255, 0);
+        // Draw FOV lines for collision
+        //if (col % 10 == 0) 
+        //if (col == 0 || col == Math.trunc(scrWidth/2) || col == scrWidth-1)
+        //    drawLineImgData(playerY * miniCellSize, playerX * miniCellSize, playerY*miniCellSize + eyeY * distance * miniCellSize, playerX*miniCellSize + eyeX * distance * miniCellSize, 0 , 255, 0);
 
-            // get exact coords of collision
-            var hitX = playerX + eyeX * distance;
-            var hitY = playerY + eyeY * distance;
+        // get exact coords of collision
+        var hitX = playerX + eyeX * distance;
+        var hitY = playerY + eyeY * distance;
 
-            // hold x and y value to sample from texture
-            var sampleX;
-            var sampleY;
-            
-            // determine which side of the cell was hit
-            // get corresponding x-coord in that plane
-            if (testingXray) {
-                if (xStep > 0) {
-                    sampleX = 1 - hitY + Math.trunc(hitY);
-                } else {
-                    sampleX = hitY - Math.trunc(hitY);
-                }
-            } else if (testingYray) {
-                if (yStep > 0) {
-                    sampleX = hitX - Math.trunc(hitX);
-                } else {
-                    sampleX = 1 - hitX + Math.trunc(hitX);
-                }
+        // hold x and y value to sample from texture
+        var sampleX;
+        var sampleY;
+        
+        // determine which side of the cell was hit
+        // get corresponding x-coord in that plane
+        if (testingXray) {
+            if (xStep > 0) {
+                sampleX = 1 - hitY + Math.trunc(hitY);
+            } else {
+                sampleX = hitY - Math.trunc(hitY);
             }
-
-            // vertical angle coefficient
-            // screen height is divided by the vaCoef
-            var vaCoef = 1/(playerVA);
-
-            // calculate wall start and end for col based on distance
-            var drawHeight = 0.5 + playerZ;
-            var wallLineHeight = scrHeight/range;
-            var wallStart= scrHeight/vaCoef - wallLineHeight + drawHeight * wallLineHeight
-            var wallEnd= scrHeight/vaCoef + wallLineHeight + drawHeight * wallLineHeight
-            
-            //var wallStart= (scrHeight/vaCoef) - scrHeight/range + drawHeight*(scrHeight/range)
-            //var wallEnd= (scrHeight/vaCoef) + scrHeight/range + drawHeight*(scrHeight/range)
-            
-
-            // write ceiling, wall, and floor to column
-            for (var row = 0; row < scrHeight; row += 1) {
-                if ((row > wallStart && row <= wallEnd) && (zBuffer[row * scrWidth + col] == null || range < zBuffer[row * scrWidth + col])) {
-                    zBuffer[row * scrWidth + col] = range;
-                } else {
-                    continue;
-                }
-                var rgba = [0, 0, 0, 0], r, g, b;
-                // ceiling
-                if (row < wallStart) {
-                    rgba = [255, 0, 0, 0]
-                    // calculate the sample coordinates used for ceiling
-                    
-                    var ceilDistance = ( vaCoef/( 1-( (row) / (scrHeight/vaCoef) ) ) ) / fisheyeCoeff;
-                    
-                    var ceilX = (eyeX * ceilDistance + playerX);
-                    var ceilY = (eyeY * ceilDistance + playerY);
-                    var ceilSampleX = (ceilX) - Math.trunc(ceilX) 
-                    var ceilSampleY = (ceilY) - Math.trunc(ceilY)
-                    
-                    var ceilType = ceilMap[Math.trunc(ceilX) * mapWidth + Math.trunc(ceilY)];
-                    //rgba = textureList[ceilType].sample(ceilSampleX, ceilSampleY);
-                    
-                    r = rgba[0];
-                    g = rgba[1];
-                    b = rgba[2];
-                // wall
-                } else if (row > wallStart && row <= wallEnd) {
-                    rgba = [0, 255, 0, 0]
-                    // calculate sampleY based on current row in column
-                    
-                    var sampleY = (row - wallStart) / (wallEnd - wallStart);
-                    rgba = textureList[wallType].sample(sampleX, sampleY);
-
-                    r = rgba[0];
-                    g = rgba[1];
-                    b = rgba[2];
-                    var off = row*4*scrWidth + col*4
-                    pixels[off] = r;
-                    pixels[off+1] = g;
-                    pixels[off+2] = b; 
-                // floor
-                } else {
-                    rgba = [0, 0, 255, 0]
-                    // calculate the sample coordinates used for the floor and ceiling
-                    
-                    var floorDistance = ( vaCoef/( ( row-(scrHeight/vaCoef) ) / ( scrHeight/vaCoef ) ) ) / fisheyeCoeff;
-
-                    var floorX = (eyeX * floorDistance + playerX);
-                    var floorY = (eyeY * floorDistance + playerY);
-                    var floorSampleX = (floorX) - Math.trunc(floorX) 
-                    var floorSampleY = (floorY) - Math.trunc(floorY)
-
-                    var floorType = floorMap[Math.trunc(floorX) * mapWidth + Math.trunc(floorY)];
-                    rgba = textureList[floorType].sample(floorSampleX, floorSampleY)
-                    
-                    r = rgba[0];
-                    g = rgba[1];
-                    b = rgba[2];
-                }
-                // write column to imagedata
-                //var off = row*4*scrWidth + col*4
-                //pixels[off] = r;
-                //pixels[off+1] = g;
-                //pixels[off+2] = b; 
+        } else if (testingYray) {
+            if (yStep > 0) {
+                sampleX = hitX - Math.trunc(hitX);
+            } else {
+                sampleX = 1 - hitX + Math.trunc(hitX);
             }
+        }
+
+        // Loop up/down with mouse
+        //playerVA = (scrHeight-mouseY)/scrHeight;
+
+        // vertical angle coefficient
+        // screen height is divided by the vaCoef
+        var vaCoef = 1/(playerVA);
+
+        // calculate ceiling and floor sizes for col based on distance
+        var ceiling = (scrHeight/vaCoef) - scrHeight/range;
+        var floor = (scrHeight/vaCoef) + scrHeight/range;
+        //var floor = scrHeight - ceiling;
+
+        // write ceiling, wall, and floor to column
+        for (var row = 0; row < scrHeight; row += 1) {
+            var rgba = [0, 0, 0, 0], r, g, b;
+            // ceiling
+            if (row < ceiling) {
+                rgba = [255, 0, 0, 0]
+                // calculate the sample coordinates used for ceiling
+                
+                var ceilDistance = ( vaCoef/( 1-( (row) / (scrHeight/vaCoef) ) ) ) / fisheyeCoeff;
+                
+                var ceilX = (eyeX * ceilDistance + playerX);
+                var ceilY = (eyeY * ceilDistance + playerY);
+                var ceilSampleX = (ceilX) - Math.trunc(ceilX) 
+                var ceilSampleY = (ceilY) - Math.trunc(ceilY)
+                
+                var ceilType = ceilMap[Math.trunc(ceilX) * mapWidth + Math.trunc(ceilY)];
+                rgba = textureList[ceilType].sample(ceilSampleX, ceilSampleY);
+                
+                r = rgba[0];
+                g = rgba[1];
+                b = rgba[2];
+            // wall
+            } else if (row > ceiling && row <= floor) {
+                rgba = [0, 255, 0, 0]
+                // calculate sampleY based on current row in column
+                
+                var sampleY = (row - ceiling) / (floor - ceiling);
+                rgba = textureList[wallType].sample(sampleX, sampleY);
+
+                r = rgba[0];
+                g = rgba[1];
+                b = rgba[2];
+            // floor
+            } else {
+                rgba = [0, 0, 255, 0]
+                // calculate the sample coordinates used for the floor and ceiling
+                
+                var floorDistance = ( vaCoef/( ( row-(scrHeight/vaCoef) ) / ( scrHeight/vaCoef ) ) ) / fisheyeCoeff;
+
+                var floorX = (eyeX * floorDistance + playerX);
+                var floorY = (eyeY * floorDistance + playerY);
+                var floorSampleX = (floorX) - Math.trunc(floorX) 
+                var floorSampleY = (floorY) - Math.trunc(floorY)
+
+                var floorType = floorMap[Math.trunc(floorX) * mapWidth + Math.trunc(floorY)];
+                rgba = textureList[floorType].sample(floorSampleX, floorSampleY)
+                
+                r = rgba[0];
+                g = rgba[1];
+                b = rgba[2];
+            }
+            // write column to imagedata
+            var off = row*4*scrWidth + col*4
+            pixels[off] = r;
+            pixels[off+1] = g;
+            pixels[off+2] = b; 
         }
     }
 }
