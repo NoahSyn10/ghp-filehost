@@ -44,7 +44,7 @@ var mapHeight = mapSelection[1];
 var map = mapSelection[2];
 var floorMap = mapSelection[3];
 var ceilMap = mapSelection[4];
-var maxDepth = 64;
+var maxDepth = 32;
 
 // png files
 // var URL = "walltexture.png";
@@ -94,6 +94,8 @@ var elapsedTime = 0;
 // vars to track time
 let start, elapsed, prevTimeStamp;
 
+var wallMid
+
 // step through frames, record elapsed time, call draw()
 function step(timeStamp) {
     if (start === undefined) {
@@ -133,7 +135,7 @@ function draw() {
     }
     ctx.fillText(fps + " fps", scrWidth-(scrWidth/15), 25)
 
-    ctx.fillText(document.pointerLockElement == canvas, scrWidth-(scrWidth/5), 25)
+    ctx.fillText(Math.round(playerZ*100)/100 + ", " + Math.round(wallMid) + " / " + scrHeight, scrWidth-(scrWidth/5), 25)
 
 }
 
@@ -142,7 +144,7 @@ function move() {
     var mouseTurnSpeed = 0.0001;
     var mouseMode = document.pointerLockElement == canvas;
     var moveSpeed = 0.01;
-    var verticalMoveSpeed = .01;
+    var verticalMoveSpeed = .0025;
     var strafeSpeed = moveSpeed/2;
     if (sprintPresed) {
         moveSpeed *= 2; 
@@ -234,6 +236,12 @@ function move() {
 // cast a ray using DDA for each column of pixels
 function castRays() {
     for (var col = 0; col < scrWidth; col += 1) { 
+        // detect if player is in layer
+        var playerAboveLayer = playerZ >= 1
+        var playerBelowLayer = -1 >= playerZ
+        var playerInLayer = !playerAboveLayer && !playerBelowLayer
+
+
         // calculate ray angle and unit vector
         var rayAngle = (playerA - playerFOV/2) + (col/scrWidth) * playerFOV;
         var eyeX = Math.sin(rayAngle);
@@ -282,8 +290,7 @@ function castRays() {
 
         // track ray being tested to determine the axis which is hit
         var testingXray = false, testingYray = false;
-
-        while (distance < maxDepth) {
+        while (!(playerInLayer && hitWall) && distance < maxDepth) {
             // walk along shortest ray
             if (xRayLen <= yRayLen) {
                 testingXray = true, testingYray = false;
@@ -298,9 +305,9 @@ function castRays() {
             }
             // test for collision
             if (//testX >= 0 && testX < mapWidth && testY >= 0 && testY < mapHeight &&
-                coordsInWall(testX, testY)) {
+                coordsInWall(testX, testY) || distance >= maxDepth) {
                 hitWall = true;
-                wallType = getCell(testX, testY);
+                wallType = textureList[getCell(testX, testY)];
                 // Adjust distance to fix fisheye
                 range = distance * fisheyeCoeff;
             } else {
@@ -324,14 +331,22 @@ function castRays() {
             // get corresponding x-coord in that plane
             if (testingXray) {
                 if (xStep > 0) {
+                    if (coordsInWall(testX-1, testY))
+                        continue;
                     sampleX = 1 - hitY + Math.trunc(hitY);
                 } else {
+                    if (coordsInWall(testX+1, testY))
+                        continue;
                     sampleX = hitY - Math.trunc(hitY);
                 }
             } else if (testingYray) {
                 if (yStep > 0) {
+                    if (coordsInWall(testX, testY-1))
+                        continue;
                     sampleX = hitX - Math.trunc(hitX);
                 } else {
+                    if (coordsInWall(testX, testY+1))
+                        continue;
                     sampleX = 1 - hitX + Math.trunc(hitX);
                 }
             }
@@ -341,48 +356,72 @@ function castRays() {
             var vaCoef = 1/(playerVA);
 
             // calculate wall start and end for col based on distance
-            var drawHeight = 0.5 + playerZ;
+            var drawHeight = playerZ;
+            var wallMidpoint = scrHeight/vaCoef
+            wallMid = wallMidpoint
             var wallLineHeight = scrHeight/range;
-            var wallStart= scrHeight/vaCoef - wallLineHeight + drawHeight * wallLineHeight
-            var wallEnd= scrHeight/vaCoef + wallLineHeight + drawHeight * wallLineHeight
+            var wallStart= wallMidpoint - wallLineHeight + drawHeight*wallLineHeight
+            var wallEnd= wallMidpoint + wallLineHeight + drawHeight*wallLineHeight
             
             //var wallStart= (scrHeight/vaCoef) - scrHeight/range + drawHeight*(scrHeight/range)
             //var wallEnd= (scrHeight/vaCoef) + scrHeight/range + drawHeight*(scrHeight/range)
-            
 
             // write ceiling, wall, and floor to column
             for (var row = 0; row < scrHeight; row += 1) {
-                if ((row > wallStart && row <= wallEnd) && (zBuffer[row * scrWidth + col] == null || range < zBuffer[row * scrWidth + col])) {
-                    zBuffer[row * scrWidth + col] = range;
+                if (playerInLayer) {
+                } else if (/*(row > wallStart && row <= wallEnd) &&*/ ( range < zBuffer[row * scrWidth + col] || zBuffer[row * scrWidth + col] == null)) {
+                    if ((row > wallStart && row <= wallEnd))
+                        zBuffer[row * scrWidth + col] = range;
+                //} else if (((row <= wallStart && playerBelowLayer) || (row > wallEnd && playerAboveLayer)) && ( range < zBuffer[row * scrWidth + col] || zBuffer[row * scrWidth + col] == null)) {
+                    //zBuffer[row * scrWidth + col] = 0
                 } else {
                     continue;
                 }
+                
                 var rgba = [0, 0, 0, 0], r, g, b;
                 // ceiling
                 if (row < wallStart) {
-                    rgba = [255, 0, 0, 0]
                     // calculate the sample coordinates used for ceiling
-                    
-                    var ceilDistance = ( vaCoef/( 1-( (row) / (scrHeight/vaCoef) ) ) ) / fisheyeCoeff;
-                    
+                    var ceilDistance = ( ( (vaCoef*(1-drawHeight))/( 1-( (row) / (wallMidpoint) ) ) ) ) / fisheyeCoeff;
+                    //zBuffer[row * scrWidth + col] = maxDepth+1
+
                     var ceilX = (eyeX * ceilDistance + playerX);
                     var ceilY = (eyeY * ceilDistance + playerY);
-                    var ceilSampleX = (ceilX) - Math.trunc(ceilX) 
-                    var ceilSampleY = (ceilY) - Math.trunc(ceilY)
+
+                    if (!playerAboveLayer || (coordsInWall(ceilX, ceilY) && row > wallMidpoint && ceilDistance < maxDepth)) {
+                        zBuffer[row * scrWidth + col] = range;
+                        rgba = [255, 0, 0, 0]
+
+                        var ceilSampleX = (ceilX) - Math.trunc(ceilX) 
+                        var ceilSampleY = (ceilY) - Math.trunc(ceilY)
+                        if (0 > ceilX || ceilX >= mapWidth || 0 > ceilY || ceilX >= mapHeight)
+                            continue;
+                        
+                        if (coordsInWall(ceilX, ceilY))
+                            var ceilType = textureList[getCell(ceilX, ceilY)];
+                        else
+                            var ceilType = textureList[ceilMap[Math.trunc(ceilX) * mapWidth + Math.trunc(ceilY)]];
+                        
+                        if (ceilType)
+                            rgba = ceilType.sample(ceilSampleX, ceilSampleY);
                     
-                    var ceilType = ceilMap[Math.trunc(ceilX) * mapWidth + Math.trunc(ceilY)];
-                    //rgba = textureList[ceilType].sample(ceilSampleX, ceilSampleY);
-                    
-                    r = rgba[0];
-                    g = rgba[1];
-                    b = rgba[2];
+                        r = rgba[0];
+                        g = rgba[1];
+                        b = rgba[2];
+                        // write column to imagedata
+                        var off = row*4*scrWidth + col*4
+                        pixels[off] = r;
+                        pixels[off+1] = g;
+                        pixels[off+2] = b; 
+                    }
                 // wall
                 } else if (row > wallStart && row <= wallEnd) {
                     rgba = [0, 255, 0, 0]
                     // calculate sampleY based on current row in column
                     
                     var sampleY = (row - wallStart) / (wallEnd - wallStart);
-                    rgba = textureList[wallType].sample(sampleX, sampleY);
+                    if (wallType)
+                        rgba = wallType.sample(sampleX, sampleY);
 
                     r = rgba[0];
                     g = rgba[1];
@@ -393,28 +432,41 @@ function castRays() {
                     pixels[off+2] = b; 
                 // floor
                 } else {
-                    rgba = [0, 0, 255, 0]
                     // calculate the sample coordinates used for the floor and ceiling
-                    
-                    var floorDistance = ( vaCoef/( ( row-(scrHeight/vaCoef) ) / ( scrHeight/vaCoef ) ) ) / fisheyeCoeff;
+                    var floorDistance = ( vaCoef*(1 + drawHeight)/( ( row-(scrHeight/vaCoef) ) / ( scrHeight/vaCoef ) ) ) / fisheyeCoeff;
+                    //zBuffer[row * scrWidth + col] = maxDepth
 
                     var floorX = (eyeX * floorDistance + playerX);
                     var floorY = (eyeY * floorDistance + playerY);
-                    var floorSampleX = (floorX) - Math.trunc(floorX) 
-                    var floorSampleY = (floorY) - Math.trunc(floorY)
 
-                    var floorType = floorMap[Math.trunc(floorX) * mapWidth + Math.trunc(floorY)];
-                    rgba = textureList[floorType].sample(floorSampleX, floorSampleY)
+                    if (!playerBelowLayer || (coordsInWall(floorX, floorY) && row < wallMidpoint && floorDistance < maxDepth)) {
+                        zBuffer[row * scrWidth + col] = range;
+                        rgba = [0, 0, 255, 0]
+
+                        var floorSampleX = (floorX) - Math.trunc(floorX) 
+                        var floorSampleY = (floorY) - Math.trunc(floorY)
+                        if (0 > floorX || floorX >= mapWidth || 0 > floorY || floorY >= mapHeight)
+                            continue;
+
+                        if (coordsInWall(floorX, floorY))
+                            var floorType = textureList[getCell(floorX, floorY)];
+                        else
+                            var floorType = textureList[floorMap[Math.trunc(floorX) * mapWidth + Math.trunc(floorY)]];
+
+                        if (floorType)
+                            rgba = floorType.sample(floorSampleX, floorSampleY)
                     
-                    r = rgba[0];
-                    g = rgba[1];
-                    b = rgba[2];
+                        r = rgba[0];
+                        g = rgba[1];
+                        b = rgba[2];
+                        // write column to imagedata
+                        var off = row*4*scrWidth + col*4
+                        pixels[off] = r;
+                        pixels[off+1] = g;
+                        pixels[off+2] = b; 
+                    }
                 }
-                // write column to imagedata
-                //var off = row*4*scrWidth + col*4
-                //pixels[off] = r;
-                //pixels[off+1] = g;
-                //pixels[off+2] = b; 
+                
             }
         }
     }
