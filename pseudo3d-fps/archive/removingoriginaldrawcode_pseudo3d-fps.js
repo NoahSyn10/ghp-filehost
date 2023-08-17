@@ -1,8 +1,8 @@
 // Javascript Pseudo-3D FPS
 // Author: Noah Synowiec
 
-import {Maps} from './Maps.js';
-import {Sprite} from './Sprite.js';
+import {Maps} from '../Maps.js';
+import {Sprite} from '../Sprite.js';
 
 /*******************
  * Canvas Variables
@@ -33,7 +33,6 @@ var zBuffer = new Array(scrWidth * scrHeight);
 var playerX = 2;    // = 11;
 var playerY = 2;    // = 13;
 var playerZ = 0;
-var playerInLayer = true;
 var playerA = Math.PI * (.25);  // *(2.5);
 var playerVA = .5; // vertical angle
 var playerFOV = Math.PI/3;
@@ -153,7 +152,7 @@ function move() {
         keyTurnSpeed*= 2;
         mouseTurnSpeed *= 2;
     }
-    var dx, dy, dz, da;
+    var dx, dy, da;
 
     // Look around
     if ((mouseDX < 0 && mouseMode) || (leftArrowPressed && !mouseMode)) {  // turn left
@@ -196,49 +195,41 @@ function move() {
     if (wPressed) { // forward
         dx = Math.sin(playerA) * moveSpeed * elapsed;
         dy = Math.cos(playerA) * moveSpeed * elapsed;
-        if (!coordsInWall(playerX + dx, playerY) || !playerInLayer) 
+        if (!coordsInWall(playerX + dx, playerY)) 
             playerX += dx;
-        if (!coordsInWall(playerX, playerY + dy) || !playerInLayer) 
+        if (!coordsInWall(playerX, playerY + dy)) 
             playerY += dy;
     }
     if (sPressed) { // back
         dx = -Math.sin(playerA) * moveSpeed * elapsed;
         dy = -Math.cos(playerA) * moveSpeed * elapsed;
-        if (!coordsInWall(playerX + dx, playerY) || !playerInLayer) 
+        if (!coordsInWall(playerX + dx, playerY)) 
             playerX += dx;
-        if (!coordsInWall(playerX, playerY + dy) || !playerInLayer) 
+        if (!coordsInWall(playerX, playerY + dy)) 
             playerY += dy;
     }
     if (aPressed) { // left
         dx = -Math.cos(playerA) * strafeSpeed * elapsed;
         dy = Math.sin(playerA) * strafeSpeed * elapsed;
-        if (!coordsInWall(playerX + dx, playerY) || !playerInLayer) 
+        if (!coordsInWall(playerX + dx, playerY)) 
             playerX += dx;
-        if (!coordsInWall(playerX, playerY + dy) || !playerInLayer) 
+        if (!coordsInWall(playerX, playerY + dy)) 
             playerY += dy;
     }
     if (dPressed) { // right
         dx = Math.cos(playerA) * strafeSpeed * elapsed;
         dy = -Math.sin(playerA) * strafeSpeed * elapsed;
-        if (!coordsInWall(playerX + dx, playerY) || !playerInLayer) 
+        if (!coordsInWall(playerX + dx, playerY)) 
             playerX += dx;
-        if (!coordsInWall(playerX, playerY + dy) || !playerInLayer) 
+        if (!coordsInWall(playerX, playerY + dy)) 
             playerY += dy;
     }
     // Vertical movement
     if (spacePressed) {
-        dz = verticalMoveSpeed * elapsed
-        playerZ += dz;
-        if (-1 <= playerZ && playerZ <= 1 && coordsInWall(playerX, playerY)) {
-            playerZ -= dz
-        }
+        playerZ += verticalMoveSpeed * elapsed;
     }
     if (shiftPressed) {
-        dz = -verticalMoveSpeed * elapsed
-        playerZ += dz;
-        if (-1 <= playerZ && playerZ <= 1 && coordsInWall(playerX, playerY)) {
-            playerZ -= dz
-        }
+        playerZ -= verticalMoveSpeed * elapsed;
     }
 }
 
@@ -247,7 +238,7 @@ function castRays() {
     // detect if player is in layer
     var playerAboveLayer = playerZ >= 1
     var playerBelowLayer = -1 >= playerZ
-    playerInLayer = !playerAboveLayer && !playerBelowLayer
+    var playerInLayer = !playerAboveLayer && !playerBelowLayer
     var maxWallLineHeight = scrHeight/maxDepth;
 
     for (var col = 0; col < scrWidth; col += 1) { 
@@ -372,98 +363,189 @@ function castRays() {
             var wallLineHeight = scrHeight/range;
             var wallStart= viewMidPoint - wallLineHeight + playerZ*wallLineHeight
             var wallEnd= viewMidPoint + wallLineHeight + playerZ*wallLineHeight
+            
+            //var wallStart= (scrHeight/vaCoef) - scrHeight/range + playerZ*(scrHeight/range)
+            //var wallEnd= (scrHeight/vaCoef) + scrHeight/range + playerZ*(scrHeight/range)
 
-            /************************************************
-             * Draw wall if closer wall not yet drawn
-             ************************************************/
-            var rgba = [0, 0, 0, 0];
-            /* ?? Why is it slower to do `var row = wallStart` ?? */
+            // write ceiling, wall, and floor to column
             for (var row = 0; row < scrHeight; row += 1) {
-                if ((row > wallStart && row <= wallEnd) && 
-                    (!zBuffer[row * scrWidth + col] || range < zBuffer[row * scrWidth + col])) {
-                    // Set zbuff to mark wall as drawn at depth
+                if (playerInLayer) {
+                } else if ((row > wallStart && row <= wallEnd) && ( range < zBuffer[row * scrWidth + col] || zBuffer[row * scrWidth + col] == null)) {
+                    
+                //} else if (((row <= wallStart && playerBelowLayer) || (row > wallEnd && playerAboveLayer)) && ( range < zBuffer[row * scrWidth + col] || zBuffer[row * scrWidth + col] == null)) {
+                    //zBuffer[row * scrWidth + col] = 0
+                } else {
+                    continue;
+                }
+
+                if ((row > wallStart && row <= wallEnd))
                     zBuffer[row * scrWidth + col] = range;
-               
-                    /***************
-                     * Draw Wall
-                     ***************/
+                
+                var rgba = [0, 0, 0, 0], r, g, b;
+                // ceiling
+                if (row < wallStart) {
+                    // calculate the sample coordinates used for ceiling
+                    var ceilDistance = ( ( (vaCoef*(1-playerZ))/( 1-( (row) / (viewMidPoint) ) ) ) ) / fisheyeCoeff;
+
+                    var ceilX = (eyeX * ceilDistance + playerX);
+                    var ceilY = (eyeY * ceilDistance + playerY);
+
+                    if (!playerAboveLayer || (coordsInWall(ceilX, ceilY) && row > viewMidPoint && ceilDistance < maxDepth)) {
+                        //zBuffer[row * scrWidth + col] = range;
+                        rgba = [255, 0, 0, 0]
+
+                        var ceilSampleX = (ceilX) - Math.trunc(ceilX) 
+                        var ceilSampleY = (ceilY) - Math.trunc(ceilY)
+                        if (0 > ceilX || ceilX >= mapWidth || 0 > ceilY || ceilX >= mapHeight)
+                            continue;
+                        
+                        if (coordsInWall(ceilX, ceilY))
+                            var ceilType = textureList[getCell(ceilX, ceilY)];
+                        else
+                            var ceilType = textureList[ceilMap[Math.trunc(ceilX) * mapWidth + Math.trunc(ceilY)]];
+                        
+                        if (ceilType)
+                            rgba = ceilType.sample(ceilSampleX, ceilSampleY);
+                    
+                        r = rgba[0];
+                        g = rgba[1];
+                        b = rgba[2];
+                        // write column to imagedata
+                        //var off = row*4*scrWidth + col*4
+                        //pixels[off] = r;
+                        //pixels[off+1] = g;
+                        //pixels[off+2] = b; 
+                    }
+                // wall
+                } else if (row > wallStart && row <= wallEnd) {
                     rgba = [0, 255, 0, 0]
                     // calculate sampleY based on current row in column
+                    
                     var sampleY = (row - wallStart) / (wallEnd - wallStart);
                     if (wallType)
                         rgba = wallType.sample(sampleX, sampleY);
 
+                    r = rgba[0];
+                    g = rgba[1];
+                    b = rgba[2];
                     var off = row*4*scrWidth + col*4
-                    pixels[off] = rgba[0];      // r
-                    pixels[off+1] = rgba[1];    // g
-                    pixels[off+2] = rgba[2];    // b
+                    pixels[off] = r;
+                    pixels[off+1] = g;
+                    pixels[off+2] = b; 
+                // floor
+                } else {
+                    // calculate the sample coordinates used for the floor and ceiling
+                    var floorDistance = ( vaCoef*(1 + playerZ)/( ( row-(viewMidPoint) ) / ( viewMidPoint ) ) ) / fisheyeCoeff;
+
+                    var floorX = (eyeX * floorDistance + playerX);
+                    var floorY = (eyeY * floorDistance + playerY);
+
+                    if (!playerBelowLayer || (coordsInWall(floorX, floorY) && row < viewMidPoint && floorDistance < maxDepth)) {
+                        //zBuffer[row * scrWidth + col] = range;
+                        rgba = [0, 0, 255, 0]
+
+                        var floorSampleX = (floorX) - Math.trunc(floorX) 
+                        var floorSampleY = (floorY) - Math.trunc(floorY)
+                        if (0 > floorX || floorX >= mapWidth || 0 > floorY || floorY >= mapHeight)
+                            continue;
+
+                        if (coordsInWall(floorX, floorY))
+                            var floorType = textureList[getCell(floorX, floorY)];
+                        else
+                            var floorType = textureList[floorMap[Math.trunc(floorX) * mapWidth + Math.trunc(floorY)]];
+
+                        if (floorType)
+                            rgba = floorType.sample(floorSampleX, floorSampleY)
+                    
+                        r = rgba[0];
+                        g = rgba[1];
+                        b = rgba[2];
+                        // write column to imagedata
+                        //var off = row*4*scrWidth + col*4
+                        //pixels[off] = r;
+                        //pixels[off+1] = g;
+                        //pixels[off+2] = b; 
+                    }
                 }
+                
             }
         }
         
         /************************************************
          * Draw ceiling and floor when outside of layer
          ************************************************/
-        var rgba = [0, 0, 0, 0];
-        for (var row = 0; row < scrHeight; row += 1) {
-            /***************
-             * Draw Ceiling
-             ***************/
-            if ((!playerAboveLayer && row < viewMidPoint) || ( playerAboveLayer && row > viewMidPoint-maxWallLineHeight)) {
-                var ceilDistance = ( ( (vaCoef*(1-playerZ))/( 1-( (row) / (viewMidPoint) ) ) ) ) / fisheyeCoeff;
-                var ceilX = (eyeX * ceilDistance + playerX);
-                var ceilY = (eyeY * ceilDistance + playerY);
-                if (((!zBuffer[row * scrWidth + col] && !playerAboveLayer) || (playerAboveLayer && coordsInWall(ceilX, ceilY) && row > viewMidPoint)) &&
-                    (0 <= ceilX && ceilX < mapWidth && 0 <= ceilY && ceilY < mapHeight && ceilDistance < maxDepth)) {
-                    rgba = [255, 0, 0, 0]
+        if (true /*!playerInLayer*/) {
+            for (var row = 0; row < scrHeight; row += 1) {
+                // draw floor and ceiling if nothing has been drawn to this pixel
+                if (true /*!zBuffer[row * scrWidth + col]*/) {
+                    /***************
+                     * Draw Ceiling
+                     ***************/
+                    if ((!playerAboveLayer && row < viewMidPoint) || ( playerAboveLayer && row > viewMidPoint-maxWallLineHeight)) {
+                        var ceilDistance = ( ( (vaCoef*(1-playerZ))/( 1-( (row) / (viewMidPoint) ) ) ) ) / fisheyeCoeff;
+                        var ceilX = (eyeX * ceilDistance + playerX);
+                        var ceilY = (eyeY * ceilDistance + playerY);
+                        if (((!zBuffer[row * scrWidth + col] && !playerAboveLayer) || (playerAboveLayer && coordsInWall(ceilX, ceilY) && row > viewMidPoint && ceilDistance < maxDepth)) &&
+                            (0 <= ceilX && ceilX < mapWidth && 0 <= ceilY && ceilY < mapHeight)) {
+                            rgba = [255, 0, 0, 0]
 
-                    var ceilSampleX = (ceilX) - Math.trunc(ceilX) 
-                    var ceilSampleY = (ceilY) - Math.trunc(ceilY)
-                    
-                    if (coordsInWall(ceilX, ceilY)) {
-                        var ceilType = textureList[getCell(ceilX, ceilY)];
-                        zBuffer[row * scrWidth + col] = ceilDistance
-                    } else {
-                        var ceilType = textureList[ceilMap[Math.trunc(ceilX) * mapWidth + Math.trunc(ceilY)]];
+                            var ceilSampleX = (ceilX) - Math.trunc(ceilX) 
+                            var ceilSampleY = (ceilY) - Math.trunc(ceilY)
+                            
+                            if (coordsInWall(ceilX, ceilY)) {
+                                var ceilType = textureList[getCell(ceilX, ceilY)];
+                                zBuffer[row * scrWidth + col] = ceilDistance
+                            } else {
+                                var ceilType = textureList[ceilMap[Math.trunc(ceilX) * mapWidth + Math.trunc(ceilY)]];
+                            }
+                            
+                            if (ceilType)
+                                rgba = ceilType.sample(ceilSampleX, ceilSampleY);
+                        
+                            r = rgba[0];
+                            g = rgba[1];
+                            b = rgba[2];
+                            // write column to imagedata
+                            var off = row*4*scrWidth + col*4
+                            pixels[off] = r;
+                            pixels[off+1] = g;
+                            pixels[off+2] = b; 
+                        }
                     }
-                    
-                    if (ceilType)
-                        rgba = ceilType.sample(ceilSampleX, ceilSampleY);
-                
-                    var off = row*4*scrWidth + col*4
-                    pixels[off] = rgba[0];      // r
-                    pixels[off+1] = rgba[1];    // g
-                    pixels[off+2] = rgba[2];    // b
-                }
-            }
-            /***************
-             * Draw Floor
-             ***************/
-            if ((!playerBelowLayer && row > viewMidPoint) || (playerBelowLayer && row < viewMidPoint+maxWallLineHeight)) {
-                var floorDistance = ( vaCoef*(1 + playerZ)/( ( row-(viewMidPoint) ) / ( viewMidPoint ) ) ) / fisheyeCoeff;
-                var floorX = (eyeX * floorDistance + playerX);
-                var floorY = (eyeY * floorDistance + playerY);
-                if (((!zBuffer[row * scrWidth + col] && !playerBelowLayer) || (playerBelowLayer && coordsInWall(floorX, floorY) && row < viewMidPoint)) &&
-                    (0 <= floorX && floorX < mapWidth && 0 <= floorY && floorY < mapHeight && floorDistance < maxDepth)) {
-                    rgba = [0, 0, 255, 0]
+                    /***************
+                     * Draw Floor
+                     ***************/
+                    if ((!playerBelowLayer && row > viewMidPoint) || (playerBelowLayer && row < viewMidPoint+maxWallLineHeight)) {
+                        var floorDistance = ( vaCoef*(1 + playerZ)/( ( row-(viewMidPoint) ) / ( viewMidPoint ) ) ) / fisheyeCoeff;
+                        var floorX = (eyeX * floorDistance + playerX);
+                        var floorY = (eyeY * floorDistance + playerY);
+                        if (((!zBuffer[row * scrWidth + col] && !playerBelowLayer) || (playerBelowLayer && coordsInWall(floorX, floorY) && row < viewMidPoint && floorDistance < maxDepth)) &&
+                            (0 <= floorX && floorX < mapWidth && 0 <= floorY && floorY < mapHeight)) {
+                            rgba = [0, 0, 255, 0]
 
-                    var floorSampleX = (floorX) - Math.trunc(floorX) 
-                    var floorSampleY = (floorY) - Math.trunc(floorY)
+                            var floorSampleX = (floorX) - Math.trunc(floorX) 
+                            var floorSampleY = (floorY) - Math.trunc(floorY)
 
-                    if (coordsInWall(floorX, floorY)) {
-                        var floorType = textureList[getCell(floorX, floorY)];
-                        zBuffer[row * scrWidth + col] = floorDistance
-                    } else {
-                        var floorType = textureList[floorMap[Math.trunc(floorX) * mapWidth + Math.trunc(floorY)]];
+                            if (coordsInWall(floorX, floorY)) {
+                                var floorType = textureList[getCell(floorX, floorY)];
+                                zBuffer[row * scrWidth + col] = floorDistance
+                            } else {
+                                var floorType = textureList[floorMap[Math.trunc(floorX) * mapWidth + Math.trunc(floorY)]];
+                            }
+
+                            if (floorType)
+                                rgba = floorType.sample(floorSampleX, floorSampleY)
+                        
+                            r = rgba[0];
+                            g = rgba[1];
+                            b = rgba[2];
+                            // write column to imagedata
+                            var off = row*4*scrWidth + col*4
+                            pixels[off] = r;
+                            pixels[off+1] = g;
+                            pixels[off+2] = b; 
+                        }
                     }
-
-                    if (floorType)
-                        rgba = floorType.sample(floorSampleX, floorSampleY)
-                
-                    var off = row*4*scrWidth + col*4
-                    pixels[off] = rgba[0];      // r
-                    pixels[off+1] = rgba[1];    // g
-                    pixels[off+2] = rgba[2];    // b
                 }
             }
         }
@@ -483,8 +565,8 @@ function drawFOV(r, g, b) {
         var distanceToWall = 1;
         var stepLen = 2/size;
 
-        var miniPlayerX = playerX
-        var miniPlayerY = playerY
+        var miniPlayerX = Math.trunc(playerX) + .5
+        var miniPlayerY = Math.trunc(playerY) + .5
 
         // increment ray length until inside of a wall
         while (distanceToWall < maxDepth) {
@@ -513,7 +595,7 @@ function drawMiniMap() {
     drawRectImgData(0, 0, mapHeight*size, mapWidth*size, r, g, b);
     // draw FOV
     r=0, g=255, b=0;
-    drawFOV(r, g, b);
+    //drawFOV(r, g, b);
     // draw player
     r=0, g=100, b=225;
     drawRectImgData((playerX-0.5)*size, (playerY-0.5)*size, size, size, r, g, b);
@@ -548,8 +630,8 @@ function clickMiniMap(x, y) {
 function coordsInWall(x, y) {
     var truncX = Math.trunc(x);
     var truncY = Math.trunc(y);
-    if ((x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) && 
-        map[truncX * mapWidth + truncY] ) {
+    if (!(x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) && 
+        map[truncX * mapWidth + truncY]) {
         return true;
     } else {
         return false;
