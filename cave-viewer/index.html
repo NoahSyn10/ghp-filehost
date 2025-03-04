@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<meta name="viewport" content="width=480,user-scalable=no" />
+<html>
+    <head>
+        <title>Cave Viewer</title>
+    </head>
+    <body>
+        <div class="header">
+            <div class="title-box">
+                <h1>"Cave Viewer"</h1>
+                <h2>Rudimentary cave line-plot viewer</h2>
+            </div>
+        </div>
+        <div class="content-box">
+            <div class="canvas-box">
+                <canvas id="myCanvas" width="750" height="750"></canvas>
+            </div>
+            <div class="table-box">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>FROM</th>
+                            <th>TO</th>
+                            <th>LENGTH</th>
+                            <th>BEARING</th>
+                            <th>INC</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </body>
+    <script type="module" src="cave-viewer.js"></script>
+    <style>
+        * { 
+            padding: 0; 
+            margin: 0; 
+        }
+        html {
+            background-color: white;
+        }
+        canvas { 
+            background: black; 
+            display: block; 
+            margin: 0 auto; 
+        }
+        .header {
+            background-color: white;
+            color: black;
+            border-radius: 0vh 0vh 10vh 10vh;
+        }
+        .title-box {
+            width: 100vw;
+            height: 14vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            place-content: center;
+        }
+        .options-box {
+            width: 100vw;
+            height: 6vh;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: center;
+            place-content: center;
+        }
+        .content-box {
+            width: 98vw;
+            height: 80vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid black;
+            border-radius: 5vh;
+            margin: 1vw;
+        }
+        .canvas-box {
+            width: 60vw;
+            height: 75vh;
+            overflow: hidden;
+            display: grid;
+            place-content: center;
+            margin: 1vw;
+        }
+        .table-box {
+            width: 30vw;
+            height: 75vh;
+            overflow: auto;
+            place-content: center;
+            border: 1px solid #000000;
+            border-radius: 1%;
+            margin: 1vw;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</html>
