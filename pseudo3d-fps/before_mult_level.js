@@ -398,18 +398,18 @@ function castRays(layerNum) {
          ************************************************/
         
         var rgba = [0, 0, 0, 0];
-        //if (layerNum != 0) continue;
+        if (layerNum != 0) continue;
 
         for (var row = 0; row < scrHeight; row += 1) {
             /***************
              * Draw Ceiling
              ***************/
             
-            if (/*(!playerAboveLayer && row < viewMidPoint) ||*/ ( playerAboveLayer && row > viewMidPoint)) {
+            if ((!playerAboveLayer && row < viewMidPoint) || ( playerAboveLayer && row > viewMidPoint)) {
                 var ceilDistance = ( ( ( (1-layerHeight) / playerVA ) / ( 1-( (row) / (viewMidPoint) ) ) ) ) / fisheyeCoeff;
                 var ceilX = (eyeX * ceilDistance + playerX);    // collision coordinates
                 var ceilY = (eyeY * ceilDistance + playerY);
-                //ceilType = textureList[ceilMap[Math.trunc(ceilX) * mapWidth + Math.trunc(ceilY)]];
+                ceilType = textureList[ceilMap[Math.trunc(ceilX) * mapWidth + Math.trunc(ceilY)]];
 
                 if (((!zBuffer[row * scrWidth + col] && !playerAboveLayer && ceilType) || (playerAboveLayer && layerList[layerNum] && coordsInWall(layerList[layerNum].map, ceilX, ceilY))) &&
                     (0 <= ceilX && ceilX < mapWidth && 0 <= ceilY && ceilY < mapHeight && ceilDistance < maxDepth)) {
@@ -420,7 +420,7 @@ function castRays(layerNum) {
                     var ceilSampleY = (ceilY) - Math.trunc(ceilY);  
                     
                     var ceilType;
-                    //if (coordsInWall(layerList[layerNum].map, ceilX, ceilY)) 
+                    if (coordsInWall(layerList[layerNum].map, ceilX, ceilY)) 
                         ceilType = textureList[getCell(layerList[layerNum].map, ceilX, ceilY)];
                     //else 
                     //    ceilType = textureList[ceilMap[Math.trunc(ceilX) * mapWidth + Math.trunc(ceilY)]];
@@ -437,23 +437,23 @@ function castRays(layerNum) {
             /***************
              * Draw Floor
              ***************/
-            
-            if (/*(!playerBelowLayer && row > viewMidPoint) || */(playerBelowLayer && row < viewMidPoint)) {
+            /*
+            if ((!playerBelowLayer && row > viewMidPoint) || (playerBelowLayer && row < viewMidPoint)) {
                 var floorDistance = ( ( (1 + layerHeight) / playerVA ) / ( ( row-(viewMidPoint) ) / ( viewMidPoint ) ) ) / fisheyeCoeff;
                 var floorX = (eyeX * floorDistance + playerX);
                 var floorY = (eyeY * floorDistance + playerY);
-                if ((/*(!zBuffer[row * scrWidth + col] && !playerBelowLayer) || */(playerBelowLayer && coordsInWall(layerList[layerNum].map, floorX, floorY))) &&
+                if (((!zBuffer[row * scrWidth + col] && !playerBelowLayer) || (playerBelowLayer && coordsInWall(floorX, floorY))) &&
                     (0 <= floorX && floorX < mapWidth && 0 <= floorY && floorY < mapHeight && floorDistance < maxDepth)) {
                     rgba = [0, 0, 255, 0];
 
-                    var floorSampleX = (floorX) - Math.trunc(floorX);
+                    var floorSampleX = (floorX) - Math.trunc(floorX) ;
                     var floorSampleY = (floorY) - Math.trunc(floorY);
 
                     var floorType
-                    //if (coordsInWall(floorX, floorY))
-                        floorType = textureList[getCell(layerList[layerNum].map, floorX, floorY)];
-                    //else 
-                        //floorType = textureList[floorMap[Math.trunc(floorX) * mapWidth + Math.trunc(floorY)]];
+                    if (coordsInWall(floorX, floorY))
+                        floorType = textureList[getCell(floorX, floorY)];
+                    else 
+                        floorType = textureList[floorMap[Math.trunc(floorX) * mapWidth + Math.trunc(floorY)]];
 
                     if (floorType)
                         rgba = floorType.sample(floorSampleX, floorSampleY)
@@ -463,7 +463,7 @@ function castRays(layerNum) {
                     pixels[off+1] = rgba[1];    // g
                     pixels[off+2] = rgba[2];    // b
                 }
-            }
+            }*/
         }
     }
 }
