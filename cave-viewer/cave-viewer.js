@@ -19,10 +19,10 @@ let scale = 1
 /*******************
  * Init ImageData
  *******************/
-var imgdata = ctx.getImageData(0, 0, scrWidth, scrHeight);
-var pixels = imgdata.data;
+const imgdata = ctx.getImageData(0, 0, scrWidth, scrHeight);
+const pixels = imgdata.data;
 // set all alphas to 255
-for (var i = 0; i < pixels.length; i += 4) {
+for (let i = 0; i < pixels.length; i += 4) {
     pixels[i+3] = 255;
 }
 
@@ -100,35 +100,47 @@ function move() {
 /*************************
  * Line Plot Rendering
  *************************/
-async function drawLinePlot() {
+function drawLinePlot() {
 
+    let stationData = calculateStationCoords(surveyData)
+
+    Object.keys(stationData).forEach((station) => {
+        stationData[station].connections.forEach((next) => {
+            if (stationData[next].flags.trim() == "") {
+                drawLineImgDataScaled(
+                        scale,
+                        stationData[station].x, 
+                        stationData[station].y, 
+                        stationData[next].x, 
+                        stationData[next].y,
+                        255, 255, 255)
+            }
+        })
+    })
+}
+
+/**
+ * Calculate station coordinates
+ * @param {*} surveyData Survey Data object containing an array of survey shots
+ */
+function calculateStationCoords(surveyData) {
     let stations = {}
-    stations[surveyData.Shots[0].FROM] = {x: originX, y: originY, connections: []}
+    stations[surveyData.Shots[0].FROM] = {x: originX, y: originY, connections: [], flags: ""}
 
     surveyData.Shots.forEach(shot => {
         // console.log(`${shot.FROM} => ${shot.TO}`)
         stations[shot.FROM].connections.push(shot.TO)
         if (stations[shot.TO] == undefined) {
-            stations[shot.TO] = {x: 0, y: 0, connections: []}
+            stations[shot.TO] = {x: 0, y: 0, connections: [], flags: shot.FLAGS}
         }
 
-        var dx = shot.LENGTH * Math.cos(toRadians(shot.BEARING)) // dx=r*cos(theta)
-        var dy = shot.LENGTH * Math.sin(toRadians(shot.BEARING)) // dx=r*sin(theta)
+        let dx = shot.LENGTH * Math.cos(toRadians(shot.BEARING)) // dx=r*cos(theta)
+        let dy = shot.LENGTH * Math.sin(toRadians(shot.BEARING)) // dx=r*sin(theta)
         stations[shot.TO].x = stations[shot.FROM].x + dx
         stations[shot.TO].y = stations[shot.FROM].y + dy
-
-        if (shot.FLAGS.trim() == "") {
-            drawLineImgDataScaled(
-                    scale,
-                    stations[shot.FROM].x, 
-                    stations[shot.FROM].y, 
-                    stations[shot.TO].x, 
-                    stations[shot.TO].y, 
-                    255, 255, 255)
-        }
     })
 
-    // console.log(stations)
+    return stations
 }
 
 /***************************************
@@ -147,7 +159,7 @@ async function readCompassFile(filePath) {
     surveyData["Team"] = lines[4].trim()
     
     surveyData["Settings"] = {}
-    let settings = lines[5].trim().split(/: *|  +/)
+    let settings = lines[5].trim().split(/: *| {2,}/)
     for (let i = 0; i < settings.length; i+=2) {
         surveyData["Settings"][settings[i]] = settings[i+1]
     }
@@ -234,20 +246,20 @@ function toRadians(angle) {
  * Draw a rectangle to ImgData at x,y with given width and height and given rgb values 
  **************************************************************************************/
 function drawRectImgData(x, y, width, height, fr, fg, fb) {
-    var off, wr, wb, wg;
-    var strokeOn=false, sr=200, sb=200, sg=255;
+    let off, wr, wb, wg;
+    let strokeOn=false, sr=200, sb=200, sg=255;
     x = Math.trunc(x);
     y = Math.trunc(y);
     width = Math.trunc(width);
     height = Math.trunc(height);
-    for(var i = x; i < x+width; i += 1) {
-        for(var j = y; j < y+height; j += 1) {
+    for(let i = x; i < x+width; i += 1) {
+        for(let j = y; j < y+height; j += 1) {
             if(strokeOn && (i == x || i == x+width-1 || j == y || j == y+height-1)) {
                 wr=sr, wb=sb, wg=sg;
             } else {
                 wr=fr, wg=fg, wb=fb
             }
-            var off = j*4*scrWidth + i*4
+            off = j*4*scrWidth + i*4
             pixels[off] = wr;
             pixels[off+1] = wg;
             pixels[off+2] = wb;
@@ -259,16 +271,18 @@ function drawRectImgData(x, y, width, height, fr, fg, fb) {
  * Draw a line to ImgData from x1, y1 to x2, y2 with given rgb values 
  **************************************************************************************/
 function drawLineImgData(x1, y1, x2, y2, r, g, b) {
+    let tx, ty
+
     x1 = Math.trunc(x1); y1 = Math.trunc(y1);
     x2 = Math.trunc(x2); y2 = Math.trunc(y2);
 
     // console.log(`Line from (${x1}, ${y1}) => (${x2}, ${y2})`)
 
-    var angle = Math.atan2(x2-x1, y2-y1);
+    let angle = Math.atan2(x2-x1, y2-y1);
 
     if (!(-Math.PI/4 < angle && angle <= Math.PI * (3/4))) {
-        var tx=x1, x1=x2, x2=tx;
-        var ty=y1; y1=y2, y2=ty;
+        tx=x1; x1=x2; x2=tx;
+        ty=y1; y1=y2; y2=ty;
     }
 
     // handle div/0
@@ -276,27 +290,27 @@ function drawLineImgData(x1, y1, x2, y2, r, g, b) {
         x2 = x1+1
     }
 
-    var slope = (y1-y2)/(x1-x2);
-    var yint = (x1*y2 - x2*y1)/(x1-x2);
+    let slope = (y1-y2)/(x1-x2);
+    let yint = (x1*y2 - x2*y1)/(x1-x2);
 
     if (Math.abs(x2-x1) >= Math.abs(y2-y1)) {
-        for (var x = x1; x < x2; x +=1) {
+        for (let x = x1; x < x2; x +=1) {
             //var off = y2*4*scrWidth + x*4
             //pixels[off] = r; pixels[off+1] = g; pixels[off+2] = b;
 
-            var y = Math.trunc(x*slope + yint);
-            var off = y*4*scrWidth + x*4
+            let y = Math.trunc(x*slope + yint);
+            let off = y*4*scrWidth + x*4
             pixels[off] = r;
             pixels[off+1] = g;
             pixels[off+2] = b;
         }
     } else {
-        for (var y = y1; y < y2; y +=1) {
+        for (let y = y1; y < y2; y +=1) {
             //var off = y*4*scrWidth + x2*4
             //pixels[off] = r; pixels[off+1] = g; pixels[off+2] = b;
 
-            var x = Math.trunc((y - yint)/slope);
-            var off = y*4*scrWidth + x*4
+            let x = Math.trunc((y - yint)/slope);
+            let off = y*4*scrWidth + x*4
             pixels[off] = r;
             pixels[off+1] = g;
             pixels[off+2] = b;
