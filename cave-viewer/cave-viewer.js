@@ -9,10 +9,12 @@ const ctx = canvas.getContext("2d");
 canvas.height = window.innerHeight*3/4;
 canvas.width = window.innerWidth*3/5;
 canvas.style.borderRadius = "1%";
-var scrHeight = canvas.height;
-var scrWidth = canvas.width;
-var originY = Math.trunc(scrHeight/2)
-var originX = Math.trunc(scrWidth/2)
+let scrHeight = canvas.height;
+let scrWidth = canvas.width;
+let originY = Math.trunc(scrHeight/2)
+let originX = Math.trunc(scrWidth/2)
+let scale = 1
+
 
 /*******************
  * Init ImageData
@@ -30,12 +32,26 @@ for (var i = 0; i < pixels.length; i += 4) {
 let surveyData = await readCompassFile("Kepler_Sink_Lineplot.dat") // Farrell_Data_Isolated.dat
 await displaySurveyDataTable(surveyData)
 
+/*******************
+ * Event Listeners
+ *******************/
+document.addEventListener("keydown", keyDownHandler)
+document.addEventListener("keyup", keyUpHandler)
+document.addEventListener("wheel", wheelHandler)
+document.addEventListener("mousedown", mouseUpHandler)
+document.addEventListener("mouseup", mouseDownHandler)
+document.addEventListener("mousemove", mouseMoveHandler)
+
+let wPressed, aPressed, sPressed, dPressed
+let leftArrowPressed, rightArrowPressed, upArrowPressed, downArrowPressed
+let mousePressed
+
 /*************************
  * Define Animation Loop
  *************************/
 // vars to track time
 ctx.font = "24px serif", ctx.fillStyle = "orange";
-var fps = 0, elapsedFrames = 0, elapsedTime = 0;
+let fps = 0, elapsedFrames = 0, elapsedTime = 0;
 let start, elapsed, prevTimeStamp;
 
 // step through frames, record elapsed time, call draw()
@@ -52,11 +68,12 @@ function step(timeStamp) {
     prevTimeStamp = timeStamp;
     window.requestAnimationFrame(step);
 }
-draw() // window.requestAnimationFrame(step);
+window.requestAnimationFrame(step);
 
 function draw() {
     drawRectImgData(0, 0, scrWidth, scrHeight, 0, 0, 0);
 
+    move()
     drawLinePlot()
 
     ctx.putImageData(imgdata, 0, 0); 
@@ -71,6 +88,13 @@ function draw() {
         elapsedTime += elapsed;
     }
     ctx.fillText(fps + " fps", scrWidth-(scrWidth/15), 25)
+}
+
+function move() {
+    if (wPressed || upArrowPressed) { originY-- }
+    if (aPressed || leftArrowPressed) { originX-- }
+    if (sPressed || downArrowPressed) { originY++ }
+    if (dPressed || rightArrowPressed) { originX++ }
 }
 
 /*************************
@@ -93,15 +117,6 @@ async function drawLinePlot() {
         stations[shot.TO].x = stations[shot.FROM].x + dx
         stations[shot.TO].y = stations[shot.FROM].y + dy
 
-        let scale = 1
-
-        console.log(`drawLineImgData(
-                ${stations[shot.FROM].x*scale}, 
-                ${stations[shot.FROM].y*scale}, 
-                ${stations[shot.TO].x*scale}, 
-                ${stations[shot.TO].y*scale}, 
-                255, 255, 255)`)
-
         if (shot.FLAGS.trim() == "") {
             drawLineImgDataScaled(
                     scale,
@@ -113,7 +128,7 @@ async function drawLinePlot() {
         }
     })
 
-    console.log(stations)
+    // console.log(stations)
 }
 
 /***************************************
@@ -247,7 +262,7 @@ function drawLineImgData(x1, y1, x2, y2, r, g, b) {
     x1 = Math.trunc(x1); y1 = Math.trunc(y1);
     x2 = Math.trunc(x2); y2 = Math.trunc(y2);
 
-    console.log(`Line from (${x1}, ${y1}) => (${x2}, ${y2})`)
+    // console.log(`Line from (${x1}, ${y1}) => (${x2}, ${y2})`)
 
     var angle = Math.atan2(x2-x1, y2-y1);
 
@@ -291,4 +306,68 @@ function drawLineImgData(x1, y1, x2, y2, r, g, b) {
 
 function drawLineImgDataScaled(scale, x1, y1, x2, y2, r, g, b) {
     drawLineImgData(x1*scale, y1*scale, x2*scale, y2*scale, r, g, b)
+}
+
+/**********************
+ * Listener Functions
+ **********************/
+function keyDownHandler(e) {
+    if (e.key.toLowerCase() == "w") 
+        wPressed = true;
+    if (e.key.toLowerCase() == "a") 
+        aPressed = true;
+    if (e.key.toLowerCase() == "s") 
+        sPressed = true;
+    if (e.key.toLowerCase() == "d") 
+        dPressed = true;
+    if (e.key == "ArrowLeft") 
+        leftArrowPressed = true;
+    if (e.key == "ArrowRight") 
+        rightArrowPressed = true;
+    if (e.key == "ArrowUp") 
+        upArrowPressed = true;
+    if (e.key == "ArrowDown") 
+        downArrowPressed = true;
+}
+
+function keyUpHandler(e) {
+    if (e.key.toLowerCase() == "w") 
+        wPressed = false;
+    if (e.key.toLowerCase() == "a") 
+        aPressed = false;
+    if (e.key.toLowerCase() == "s") 
+        sPressed = false;
+    if (e.key.toLowerCase() == "d") 
+        dPressed = false;
+    if (e.key == "ArrowLeft") 
+        leftArrowPressed = false;
+    if (e.key == "ArrowRight") 
+        rightArrowPressed = false;
+    if (e.key == "ArrowUp") 
+        upArrowPressed = false;
+    if (e.key == "ArrowDown") 
+        downArrowPressed = false;
+}
+
+function wheelHandler(e) {
+    if (e.deltaY > 0) {
+        scale *= 11/10
+    } else if (e.deltaY < 0) {
+        scale *= 10/11
+    }
+}
+
+function mouseDownHandler(e) {
+    mousePressed = false
+}
+
+function mouseUpHandler(e) {
+    mousePressed = true
+}
+
+function mouseMoveHandler(e) {
+    if (mousePressed) {
+        originX += e.movementX
+        originY += e.movementY
+    }
 }
