@@ -29,7 +29,7 @@ for (let i = 0; i < pixels.length; i += 4) {
 /*******************
  * Init Survey Data
  *******************/
-let surveyData = await readCompassFile("Kepler_Sink_Lineplot.dat") // Farrell_Data_Isolated.dat
+let surveyData = await readCompassFile("Sarah_Furnace_Compass.dat") // Farrell_Data_Isolated.dat
 await displaySurveyDataTable(surveyData)
 
 /*******************
@@ -50,7 +50,7 @@ let mousePressed
  * Define Animation Loop
  *************************/
 // vars to track time
-ctx.font = "24px serif", ctx.fillStyle = "orange";
+ctx.font = "24px serif"; ctx.fillStyle = "orange";
 let fps = 0, elapsedFrames = 0, elapsedTime = 0;
 let start, elapsed, prevTimeStamp;
 
@@ -102,7 +102,7 @@ function move() {
  *************************/
 function drawLinePlot() {
 
-    let stationData = calculateStationCoords(surveyData)
+    let stationData = processSurveyData(surveyData)
 
     Object.keys(stationData).forEach((station) => {
         stationData[station].connections.forEach((next) => {
@@ -120,24 +120,55 @@ function drawLinePlot() {
 }
 
 /**
- * Calculate station coordinates
+ * Process survey data to station coordinates
  * @param {*} surveyData Survey Data object containing an array of survey shots
  */
-function calculateStationCoords(surveyData) {
+function processSurveyData(surveyData) {
     let stations = {}
     stations[surveyData.Shots[0].FROM] = {x: originX, y: originY, connections: [], flags: ""}
 
     surveyData.Shots.forEach(shot => {
-        // console.log(`${shot.FROM} => ${shot.TO}`)
+        console.log(`${shot.FROM} => ${shot.TO}`)
+        // console.log(shot)
+        // stations[shot.FROM].connections.push(shot.TO)
+        // if (stations[shot.TO] == undefined) {
+        //     stations[shot.TO] = {x: 0, y: 0, connections: [], flags: shot.FLAGS}
+        // }
         stations[shot.FROM].connections.push(shot.TO)
-        if (stations[shot.TO] == undefined) {
-            stations[shot.TO] = {x: 0, y: 0, connections: [], flags: shot.FLAGS}
+
+        if (stations[shot.FROM] == undefined) {
+            stations[shot.FROM] = {x: undefined, y: undefined, connections: [], flags: shot.FLAGS}
         }
 
-        let dx = shot.LENGTH * Math.cos(toRadians(shot.BEARING)) // dx=r*cos(theta)
-        let dy = shot.LENGTH * Math.sin(toRadians(shot.BEARING)) // dx=r*sin(theta)
-        stations[shot.TO].x = stations[shot.FROM].x + dx
-        stations[shot.TO].y = stations[shot.FROM].y + dy
+        if (stations[shot.TO] == undefined) {
+            stations[shot.TO] = {x: undefined, y: undefined, connections: [], flags: shot.FLAGS}
+        }
+
+        let unresolvedStations = []
+
+        if (stations[shot.FROM].x && stations[shot.FROM].y) {
+            let dx = shot.LENGTH * Math.cos(toRadians(shot.BEARING)) // dx=r*cos(theta)
+            let dy = shot.LENGTH * Math.sin(toRadians(shot.BEARING)) // dx=r*sin(theta)
+            stations[shot.TO].x = stations[shot.FROM].x + dx
+            stations[shot.TO].y = stations[shot.FROM].y + dy
+
+        } else if (stations[shot.TO].x && stations[shot.TO].y) {
+            shot.BEARING += 180
+            let dx = shot.LENGTH * Math.cos(toRadians(shot.BEARING)) // dx=r*cos(theta)
+            let dy = shot.LENGTH * Math.sin(toRadians(shot.BEARING)) // dx=r*sin(theta)
+            stations[shot.FROM].x = stations[shot.TO].x + dx
+            stations[shot.FROM].y = stations[shot.TO].y + dy
+
+        } else {
+            unresolvedStations.push(shot.FROM)
+            unresolvedStations.push(shot.TO)
+            console.warn(`Stations ${shot.FROM} and ${shot.TO} both have undefined positions. Shot could not be resolved: ${shot}`)
+        }
+
+        // let dx = shot.LENGTH * Math.cos(toRadians(shot.BEARING)) // dx=r*cos(theta)
+        // let dy = shot.LENGTH * Math.sin(toRadians(shot.BEARING)) // dx=r*sin(theta)
+        // stations[shot.TO].x = stations[shot.FROM].x + dx
+        // stations[shot.TO].y = stations[shot.FROM].y + dy
     })
 
     return stations
@@ -159,7 +190,7 @@ async function readCompassFile(filePath) {
     surveyData["Team"] = lines[4].trim()
     
     surveyData["Settings"] = {}
-    let settings = lines[5].trim().split(/: *| {2,}/)
+    let settings = lines[5].trim().split(/:\s*\s{2,}/)
     for (let i = 0; i < settings.length; i+=2) {
         surveyData["Settings"][settings[i]] = settings[i+1]
     }
@@ -170,7 +201,7 @@ async function readCompassFile(filePath) {
 
     lines.slice(9).forEach(line => {
         let shot = {}
-        let shotData = line.trim().split(/\s\s+/)
+        let shotData = line.trim().split(/\s\s*/)
 
         if (shotData.length <=1) {
             return
