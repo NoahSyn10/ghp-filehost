@@ -124,54 +124,65 @@ function drawLinePlot() {
  * @param {*} surveyData Survey Data object containing an array of survey shots
  */
 function processSurveyData(surveyData) {
-    let stations = {}
-    stations[surveyData.Shots[0].FROM] = {x: originX, y: originY, connections: [], flags: ""}
+    let stationData = {}
 
-    surveyData.Shots.forEach(shot => {
-        console.log(`${shot.FROM} => ${shot.TO}`)
-        // console.log(shot)
-        // stations[shot.FROM].connections.push(shot.TO)
-        // if (stations[shot.TO] == undefined) {
-        //     stations[shot.TO] = {x: 0, y: 0, connections: [], flags: shot.FLAGS}
-        // }
-        stations[shot.FROM].connections.push(shot.TO)
+    stationData[surveyData.Shots[0].FROM] = {x: originX, y: originY, connections: [], flags: ""}
 
-        if (stations[shot.FROM] == undefined) {
-            stations[shot.FROM] = {x: undefined, y: undefined, connections: [], flags: shot.FLAGS}
+    let unprocessedShots = processSurveyShots(surveyData.Shots, stationData)
+
+    let prevShotCount = unprocessedShots.length + 1
+    while (unprocessedShots.length > 0 && unprocessedShots.length < prevShotCount) {
+        console.log(`Reprocessing shots: `, unprocessedShots)
+        prevShotCount = unprocessedShots.length
+        unprocessedShots = processSurveyShots(unprocessedShots, stationData)
+    }
+
+    if (unprocessedShots.length > 0) {
+        console.warn(`${unprocessedShots.length} shots could not be processed: `, unprocessedShots)
+    }
+
+    return stationData
+}
+
+/**
+ * Process a list of survey shots to station coordinated.
+ * Return a list of shots that could not be processed.
+ * @param {*} surveyShots List containing an array of unprocessed survey shots
+ * @param {*} stationData Dictionary containing processed stations
+ */
+function processSurveyShots(surveyShots, stationData) {
+    let unprocessedShots = []
+
+    surveyShots.forEach(shot => {
+        console.log(`Processing: ${shot.FROM} => ${shot.TO}`)
+
+        if (!stationData[shot.FROM] && !stationData[shot.TO]) {
+            console.log(`Delay processing of ${shot.FROM} => ${shot.TO}`)
+            unprocessedShots.push(shot)
+            return;
         }
 
-        if (stations[shot.TO] == undefined) {
-            stations[shot.TO] = {x: undefined, y: undefined, connections: [], flags: shot.FLAGS}
-        }
-
-        let unresolvedStations = []
-
-        if (stations[shot.FROM].x && stations[shot.FROM].y) {
+        if (stationData[shot.TO] == undefined) {
+            stationData[shot.TO] = {x: undefined, y: undefined, connections: [], flags: shot.FLAGS}
             let dx = shot.LENGTH * Math.cos(toRadians(shot.BEARING)) // dx=r*cos(theta)
             let dy = shot.LENGTH * Math.sin(toRadians(shot.BEARING)) // dx=r*sin(theta)
-            stations[shot.TO].x = stations[shot.FROM].x + dx
-            stations[shot.TO].y = stations[shot.FROM].y + dy
+            stationData[shot.TO].x = stationData[shot.FROM].x + dx
+            stationData[shot.TO].y = stationData[shot.FROM].y + dy
 
-        } else if (stations[shot.TO].x && stations[shot.TO].y) {
-            shot.BEARING += 180
-            let dx = shot.LENGTH * Math.cos(toRadians(shot.BEARING)) // dx=r*cos(theta)
-            let dy = shot.LENGTH * Math.sin(toRadians(shot.BEARING)) // dx=r*sin(theta)
-            stations[shot.FROM].x = stations[shot.TO].x + dx
-            stations[shot.FROM].y = stations[shot.TO].y + dy
-
+        } else if (stationData[shot.FROM] == undefined) {
+            stationData[shot.FROM] = {x: undefined, y: undefined, connections: [], flags: shot.FLAGS}
+            let dx = shot.LENGTH * Math.cos(toRadians(shot.BEARING-180)) // dx=r*cos(theta)
+            let dy = shot.LENGTH * Math.sin(toRadians(shot.BEARING-180)) // dx=r*sin(theta)
+            stationData[shot.FROM].x = stationData[shot.TO].x + dx
+            stationData[shot.FROM].y = stationData[shot.TO].y + dy
         } else {
-            unresolvedStations.push(shot.FROM)
-            unresolvedStations.push(shot.TO)
-            console.warn(`Stations ${shot.FROM} and ${shot.TO} both have undefined positions. Shot could not be resolved: ${shot}`)
+            console.warn(`Stations ${shot.FROM} and ${shot.TO} are already processed`)
         }
 
-        // let dx = shot.LENGTH * Math.cos(toRadians(shot.BEARING)) // dx=r*cos(theta)
-        // let dy = shot.LENGTH * Math.sin(toRadians(shot.BEARING)) // dx=r*sin(theta)
-        // stations[shot.TO].x = stations[shot.FROM].x + dx
-        // stations[shot.TO].y = stations[shot.FROM].y + dy
+        stationData[shot.FROM].connections.push(shot.TO)
     })
 
-    return stations
+    return unprocessedShots
 }
 
 /***************************************
